@@ -1,0 +1,49 @@
+schema: umicom.application.v1
+
+application:
+  id: org.umicom.desktop
+  name: Umicom Desk
+  short_name: Desk
+  version: 0.1.0
+  executable: umicom-desk
+  aliases: [udesk, desktop]
+
+framework:
+  minimum_version: 0.9.0
+  compatible_major: 0
+
+frontends:
+  - console
+  - gtk
+
+entry:
+  kind: system
+  taskbar_group: system
+  pinned_by_default: true
+  icon_resource_id: umicom.icon.application.desktop
+  default_layout_id: mosaic
+
+capabilities:
+  - runtime-capabilities
+  - application-portfolio
+  - application-runtime-catalogue
+  - application-launcher
+  - desktop-runtime
+  - desktop-taskbar
+  - semantic-layouts
+  - context-links
+  - process-supervision
+  - shared-resources
+  - gtk4-reference-adapter
+
+source_layout:
+  product_root: src
+  composition_root: src
+  console_frontend: src/console
+  gtk_frontend: src/gtk
+
+boundaries:
+  owns_linux_kernel: false
+  scans_arbitrary_application_folders: false
+  launches_through_framework: true
+  stores_widget_trees_as_layouts: false

@@ -1,0 +1,14 @@
+{
+  "schema": "umicom.application-presentations/1",
+  "presentations": [
+    {
+      "application_id": "org.umicom.desktop",
+      "icon_resource_id": "umicom.icon.application.desktop",
+      "default_layout_id": "mosaic",
+      "taskbar_group": "system",
+      "entry_kind": "system",
+      "pinned_by_default": true,
+      "visible_when_unavailable": false
+    }
+  ]
+}

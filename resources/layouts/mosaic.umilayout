@@ -1,0 +1,58 @@
+{
+  "schema": "umicom.layout/1",
+  "layout": {
+    "id": "mosaic",
+    "name": "Mosaic",
+    "category": "desktop",
+    "description": "Umicom Desk global command area, active workbench, application taskbar and layout strip.",
+    "locked": false,
+    "root": {
+      "id": "desktop.root",
+      "kind": "split",
+      "orientation": "vertical",
+      "ratio": 0.08,
+      "children": [
+        {
+          "id": "desktop.global-command-bar",
+          "kind": "panel",
+          "component_id": "umicom.desktop.global-command-bar",
+          "owner_application_id": "org.umicom.desktop"
+        },
+        {
+          "id": "desktop.main-and-bottom",
+          "kind": "split",
+          "orientation": "vertical",
+          "ratio": 0.84,
+          "children": [
+            {
+              "id": "desktop.active-workbench",
+              "kind": "panel",
+              "component_id": "umicom.desktop.active-workbench",
+              "owner_application_id": "org.umicom.desktop"
+            },
+            {
+              "id": "desktop.bottom-strips",
+              "kind": "split",
+              "orientation": "vertical",
+              "ratio": 0.52,
+              "children": [
+                {
+                  "id": "desktop.application-strip",
+                  "kind": "panel",
+                  "component_id": "umicom.desktop.application-strip",
+                  "owner_application_id": "org.umicom.desktop"
+                },
+                {
+                  "id": "desktop.layout-strip",
+                  "kind": "panel",
+                  "component_id": "umicom.desktop.layout-strip",
+                  "owner_application_id": "org.umicom.desktop"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
