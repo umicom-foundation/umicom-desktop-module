@@ -3,8 +3,7 @@
  * File: src/gtk/main.c
  *
  * PURPOSE:
- *   Start the GTK4 Umicom Desk shell using Framework-owned desktop and launcher
- *   services. This file contributes product startup only.
+ *   Start Umicom Desk with Framework-owned launcher services and the reusable cross-application context-link strip.
  *
  * Created by: Sammy Hegab
  * Organisation: Umicom Foundation
@@ -12,21 +11,101 @@
  *---------------------------------------------------------------------------*/
 #include <gtk/gtk.h>
 
+#include "umicom/desktop_module/context_link_centre.h"
 #include "umicom/desktop_module/desktop_module.h"
 #include "umicom/ui/gtk4/desk.h"
+#include "umicom/workbench_context_host/gtk4.h"
 
 typedef struct UmiDesktopGtkRun {
     UmiDesktopModule *module;
     UmiGtk4Desk *desk;
+    UmiDesktopContextLinkCentre *context_links;
+    GtkWidget *context_strip;
+    GtkWidget *context_root;
     char *executable_root;
 } UmiDesktopGtkRun;
+
+static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
+{
+    GtkWindow *window;
+    GtkWidget *existing;
+    GtkWidget *root;
+
+    if (run == NULL || run->desk == NULL || run->context_links == NULL) {
+        return UMI_STATUS_INVALID_ARGUMENT;
+    }
+
+    window = GTK_WINDOW(umi_gtk4_desk_native_window(run->desk));
+    if (window == NULL) return UMI_STATUS_INVALID_STATE;
+
+    existing = gtk_window_get_child(window);
+    if (existing != NULL) g_object_ref(existing);
+
+    root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    if (root == NULL) {
+        if (existing != NULL) g_object_unref(existing);
+        return UMI_STATUS_OUT_OF_MEMORY;
+    }
+
+    run->context_strip = umi_workbench_context_host_gtk4_strip_new(
+        umi_desktop_context_link_centre_host(run->context_links));
+    if (run->context_strip == NULL) {
+        if (existing != NULL) g_object_unref(existing);
+        g_object_unref(root);
+        return UMI_STATUS_OUT_OF_MEMORY;
+    }
+
+    gtk_widget_add_css_class(root, "umicom-desk-context-root");
+    gtk_box_append(GTK_BOX(root), run->context_strip);
+
+    if (existing != NULL) {
+        gtk_window_set_child(window, NULL);
+        gtk_widget_set_hexpand(existing, TRUE);
+        gtk_widget_set_vexpand(existing, TRUE);
+        gtk_box_append(GTK_BOX(root), existing);
+        g_object_unref(existing);
+    }
+
+    gtk_window_set_child(window, root);
+    run->context_root = root;
+    return UMI_STATUS_OK;
+}
 
 static gboolean poll_processes(gpointer user_data)
 {
     UmiDesktopGtkRun *run = (UmiDesktopGtkRun *)user_data;
+    UmiStatus status;
+
     if (run == NULL || run->module == NULL) return G_SOURCE_REMOVE;
-    (void)umi_desktop_module_poll(run->module);
-    if (run->desk != NULL) (void)umi_gtk4_desk_refresh(run->desk);
+
+    status = umi_desktop_module_poll(run->module);
+    if (status != UMI_STATUS_OK) {
+        g_printerr(
+            "Umicom Desk process reconciliation failed: %s\n",
+            umi_status_text(status));
+    }
+
+    if (run->context_links != NULL) {
+        status = umi_desktop_context_link_centre_refresh(
+            run->context_links,
+            run->module,
+            (uint64_t)(g_get_monotonic_time() / 1000));
+        if (status != UMI_STATUS_OK) {
+            g_printerr(
+                "Umicom Desk context refresh failed: %s\n",
+                umi_status_text(status));
+        }
+    }
+
+    if (run->desk != NULL) {
+        (void)umi_gtk4_desk_refresh(run->desk);
+    }
+    if (run->context_strip != NULL && run->context_links != NULL) {
+        (void)umi_workbench_context_host_gtk4_strip_refresh(
+            run->context_strip,
+            umi_desktop_context_link_centre_host(run->context_links));
+    }
+
     return G_SOURCE_CONTINUE;
 }
 
@@ -35,6 +114,7 @@ static void on_activate(GtkApplication *application, gpointer user_data)
     UmiDesktopGtkRun *run = (UmiDesktopGtkRun *)user_data;
     UmiDesktopModuleConfig config = umi_desktop_module_config_default();
     UmiStatus status;
+
     if (run == NULL || run->module != NULL) return;
     config.executable_root = run->executable_root;
     config.working_directory = run->executable_root;
@@ -51,9 +131,24 @@ static void on_activate(GtkApplication *application, gpointer user_data)
     if (status == UMI_STATUS_OK) {
         status = umi_gtk4_desk_present(run->desk);
     }
+    if (status == UMI_STATUS_OK) {
+        status = umi_desktop_context_link_centre_create(
+            &run->context_links);
+    }
+    if (status == UMI_STATUS_OK) {
+        status = umi_desktop_context_link_centre_refresh(
+            run->context_links,
+            run->module,
+            (uint64_t)(g_get_monotonic_time() / 1000));
+    }
+    if (status == UMI_STATUS_OK) {
+        status = attach_context_strip(run);
+    }
+
     if (status != UMI_STATUS_OK) {
-        g_printerr("Umicom Desk startup failed: %s\n",
-                   umi_status_text(status));
+        g_printerr(
+            "Umicom Desk startup failed: %s\n",
+            umi_status_text(status));
         g_application_quit(G_APPLICATION(application));
         return;
     }
@@ -77,11 +172,27 @@ int main(int argc, char **argv)
         "org.umicom.desktop",
         G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(
-        application, "activate", G_CALLBACK(on_activate), &run);
+        application,
+        "activate",
+        G_CALLBACK(on_activate),
+        &run);
     result = g_application_run(
-        G_APPLICATION(application), argc, argv);
+        G_APPLICATION(application),
+        argc,
+        argv);
 
+    /*
+     * Destroy the GTK window and its signal closures before releasing the
+     * toolkit-neutral host borrowed by the context-strip callbacks.
+     */
     umi_gtk4_desk_destroy(run.desk);
+    run.desk = NULL;
+    run.context_strip = NULL;
+    run.context_root = NULL;
+
+    umi_desktop_context_link_centre_destroy(run.context_links);
+    run.context_links = NULL;
+
     if (run.module != NULL) {
         (void)umi_desktop_module_stop(run.module);
     }
@@ -95,10 +206,11 @@ int main(int argc, char **argv)
 #ifdef _WIN32
 #include <windows.h>
 
-int WINAPI WinMain(HINSTANCE instance,
-                   HINSTANCE previous_instance,
-                   LPSTR command_line,
-                   int show_command)
+int WINAPI WinMain(
+    HINSTANCE instance,
+    HINSTANCE previous_instance,
+    LPSTR command_line,
+    int show_command)
 {
     (void)instance;
     (void)previous_instance;

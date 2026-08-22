@@ -61,6 +61,7 @@ endif()
 
 add_library(umicom_desktop_module STATIC
     src/desktop_module.c
+    src/context_link_centre.c
 )
 add_library(Umicom::desktop_module ALIAS umicom_desktop_module)
 
