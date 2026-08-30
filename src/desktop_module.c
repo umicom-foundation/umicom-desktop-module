@@ -6,9 +6,12 @@
  *   Compose Framework application, desktop, layout and process services into
  *   the Umicom Desk product profile.
  *
- * Created by: Sammy Hegab
- * Organisation: Umicom Foundation
- * Licence: MIT
+ * AUTHOR AND ORGANISATION:
+ * Sammy Hegab
+ * Umicom Foundation
+ *
+ * LICENCE:
+ * MIT
  *---------------------------------------------------------------------------*/
 #include "umicom/desktop_module/desktop_module.h"
 

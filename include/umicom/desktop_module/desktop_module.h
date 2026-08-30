@@ -6,9 +6,12 @@
  *   Define the thin Umicom Desk product composition. Reusable launcher,
  *   taskbar, layout, process and GTK4 behaviour remains in Umicom Framework.
  *
- * Created by: Sammy Hegab
- * Organisation: Umicom Foundation
- * Licence: MIT
+ * AUTHOR AND ORGANISATION:
+ * Sammy Hegab
+ * Umicom Foundation
+ *
+ * LICENCE:
+ * MIT
  *---------------------------------------------------------------------------*/
 #ifndef UMICOM_DESKTOP_MODULE_DESKTOP_MODULE_H
 #define UMICOM_DESKTOP_MODULE_DESKTOP_MODULE_H

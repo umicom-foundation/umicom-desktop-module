@@ -5,9 +5,12 @@
  * PURPOSE:
  *   Start Umicom Desk with Framework-owned launcher services and the reusable cross-application context-link strip.
  *
- * Created by: Sammy Hegab
- * Organisation: Umicom Foundation
- * Licence: MIT
+ * AUTHOR AND ORGANISATION:
+ * Sammy Hegab
+ * Umicom Foundation
+ *
+ * LICENCE:
+ * MIT
  *---------------------------------------------------------------------------*/
 #include <gtk/gtk.h>
 

@@ -5,9 +5,12 @@
  * PURPOSE:
  *   Compose Umicom Desk application-selection context links over the reusable Framework context-host runtime.
  *
- * Created by: Sammy Hegab
- * Organisation: Umicom Foundation
- * Licence: MIT
+ * AUTHOR AND ORGANISATION:
+ * Sammy Hegab
+ * Umicom Foundation
+ *
+ * LICENCE:
+ * MIT
  *---------------------------------------------------------------------------*/
 
 #ifndef UMICOM_DESKTOP_MODULE_CONTEXT_LINK_CENTRE_H

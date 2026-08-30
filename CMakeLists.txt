@@ -6,9 +6,12 @@
 #   Build the thin Umicom Desk product composition against public Framework
 #   targets supplied by the parent superproject or an installed Framework SDK.
 #
-# Created by: Sammy Hegab
-# Organisation: Umicom Foundation
-# Licence: MIT
+# AUTHOR AND ORGANISATION:
+#   Sammy Hegab
+#   Umicom Foundation
+#
+# LICENCE:
+#   MIT
 #-----------------------------------------------------------------------------
 cmake_minimum_required(VERSION 3.24)
 
