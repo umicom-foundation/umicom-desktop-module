@@ -17,6 +17,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifndef UMICOM_DESKTOP_STUDIO_EXECUTABLE
+#define UMICOM_DESKTOP_STUDIO_EXECUTABLE "umicom-studio-ide"
+#endif
+
 #define REQUIRE(condition)                                                     \
     do {                                                                       \
         if (!(condition)) {                                                    \
@@ -31,6 +35,7 @@ int main(void)
     UmiDesktopModule *module = NULL;
     UmiDesktopModuleSnapshot snapshot;
     UmiApplicationRuntimeRecord record;
+    UmiApplicationLaunchSelectionSnapshot launch_selection;
 
     REQUIRE(umi_desktop_module_create(NULL, &module) == UMI_STATUS_OK);
     REQUIRE(umi_desktop_module_start(module) == UMI_STATUS_OK);
@@ -47,7 +52,12 @@ int main(void)
                 &record) == UMI_STATUS_OK);
     REQUIRE(record.installed);
     REQUIRE(strcmp(record.executable_name,
-                   "umicom-studio-ide") == 0);
+                   UMICOM_DESKTOP_STUDIO_EXECUTABLE) == 0);
+    REQUIRE(umi_application_launch_selection_snapshot(
+                umi_desk_runtime_launch_selection(
+                    umi_desktop_module_desk_runtime(module)),
+                &launch_selection) == UMI_STATUS_OK);
+    REQUIRE(launch_selection.eligible_count >= 1U);
     REQUIRE(umi_desktop_module_stop(module) == UMI_STATUS_OK);
     umi_desktop_module_destroy(module);
     return 0;

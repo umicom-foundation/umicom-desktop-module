@@ -35,9 +35,22 @@ option(UMICOM_DESKTOP_GUI
 option(UMICOM_DESKTOP_COMPOSE_STUDIO
        "Expose the composed Studio executable in Umicom Desk"
        ON)
+option(UMICOM_DESKTOP_COMPOSE_TRADER
+       "Expose the composed Trader executable in Umicom Desk"
+       OFF)
+option(UMICOM_DESKTOP_COMPOSE_BANK
+       "Expose the composed Bank executable in Umicom Desk"
+       OFF)
+option(UMICOM_DESKTOP_COMPOSE_TMS
+       "Expose the composed TMS executable in Umicom Desk"
+       OFF)
 option(UMICOM_DESKTOP_COMPOSE_OS
        "Expose the composed OS Control Centre in Umicom Desk"
        ON)
+set(UMICOM_DESKTOP_STUDIO_EXECUTABLE "umicom-studio-ide" CACHE STRING
+    "Studio executable registered with Umicom Desk")
+set(UMICOM_DESKTOP_TRADER_EXECUTABLE "umicom-trader" CACHE STRING
+    "Trader executable registered with Umicom Desk")
 
 include(CTest)
 include(GNUInstallDirs)
@@ -77,7 +90,12 @@ target_link_libraries(umicom_desktop_module PUBLIC
 )
 target_compile_definitions(umicom_desktop_module PUBLIC
     UMICOM_DESKTOP_COMPOSE_STUDIO=$<BOOL:${UMICOM_DESKTOP_COMPOSE_STUDIO}>
+    UMICOM_DESKTOP_COMPOSE_TRADER=$<BOOL:${UMICOM_DESKTOP_COMPOSE_TRADER}>
+    UMICOM_DESKTOP_COMPOSE_BANK=$<BOOL:${UMICOM_DESKTOP_COMPOSE_BANK}>
+    UMICOM_DESKTOP_COMPOSE_TMS=$<BOOL:${UMICOM_DESKTOP_COMPOSE_TMS}>
     UMICOM_DESKTOP_COMPOSE_OS=$<BOOL:${UMICOM_DESKTOP_COMPOSE_OS}>
+    UMICOM_DESKTOP_STUDIO_EXECUTABLE="${UMICOM_DESKTOP_STUDIO_EXECUTABLE}"
+    UMICOM_DESKTOP_TRADER_EXECUTABLE="${UMICOM_DESKTOP_TRADER_EXECUTABLE}"
 )
 umicom_apply_warnings(umicom_desktop_module)
 umicom_apply_sanitizers(umicom_desktop_module)

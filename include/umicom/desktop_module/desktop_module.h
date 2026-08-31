@@ -31,6 +31,9 @@ typedef struct UmiDesktopModuleConfig {
     const char *executable_root;
     const char *working_directory;
     bool compose_studio;
+    bool compose_trader;
+    bool compose_bank;
+    bool compose_tms;
     bool compose_os_control_centre;
 } UmiDesktopModuleConfig;
 

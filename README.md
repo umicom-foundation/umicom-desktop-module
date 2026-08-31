@@ -34,6 +34,11 @@ umicom-desk
 umicom-desk-console
 ```
 
+When the graphical Desk starts, it presents installed applications as a
+checkbox list. Several products can be selected and opened together. The
+selection and launch report are Framework models; this module only supplies
+the suite composition and supervised process adapter.
+
 ## Architectural rules
 
 - The Master Controller owns application runtime mutations.

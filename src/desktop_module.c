@@ -20,10 +20,34 @@
 #include <string.h>
 
 #include "umicom/application/context_hub.h"
+#include "umicom/application/portfolio.h"
+#include "umicom/application/presentation.h"
 #include "umicom/desktop/runtime.h"
 #include "umicom/platform/process_supervisor.h"
 
 #define UMI_DESKTOP_MODULE_MAX_PROCESSES 64U
+
+#ifndef UMICOM_DESKTOP_COMPOSE_STUDIO
+#define UMICOM_DESKTOP_COMPOSE_STUDIO 1
+#endif
+#ifndef UMICOM_DESKTOP_COMPOSE_TRADER
+#define UMICOM_DESKTOP_COMPOSE_TRADER 0
+#endif
+#ifndef UMICOM_DESKTOP_COMPOSE_BANK
+#define UMICOM_DESKTOP_COMPOSE_BANK 0
+#endif
+#ifndef UMICOM_DESKTOP_COMPOSE_TMS
+#define UMICOM_DESKTOP_COMPOSE_TMS 0
+#endif
+#ifndef UMICOM_DESKTOP_COMPOSE_OS
+#define UMICOM_DESKTOP_COMPOSE_OS 1
+#endif
+#ifndef UMICOM_DESKTOP_STUDIO_EXECUTABLE
+#define UMICOM_DESKTOP_STUDIO_EXECUTABLE "umicom-studio-ide"
+#endif
+#ifndef UMICOM_DESKTOP_TRADER_EXECUTABLE
+#define UMICOM_DESKTOP_TRADER_EXECUTABLE "umicom-trader"
+#endif
 
 typedef struct UmiDesktopModuleProcess {
     char application_id[UMI_APPLICATION_RUNTIME_ID_CAPACITY];
@@ -155,39 +179,47 @@ static UmiStatus process_stop(
         module->processes, (UmiProcessJobId)process_token);
 }
 
-static UmiApplicationRuntimeRegistration make_registration(
+static UmiStatus make_registration(
     const char *application_id,
-    const char *display_name,
     const char *executable_name,
-    const char *icon_resource_id,
-    const char *default_layout_id,
-    const char *taskbar_group,
-    UmiApplicationFamily family,
-    UmiApplicationEntryKind entry_kind,
     bool installed,
-    bool pinned)
+    UmiApplicationRuntimeRegistration *out_registration)
 {
+    const UmiApplicationDefinition *definition;
+    const UmiApplicationPresentation *presentation;
     UmiApplicationRuntimeRegistration registration;
+    if (application_id == NULL || executable_name == NULL ||
+        out_registration == NULL) {
+        return UMI_STATUS_INVALID_ARGUMENT;
+    }
+    definition = umi_application_portfolio_find(application_id);
+    presentation = umi_application_presentation_find(application_id);
+    if (definition == NULL || presentation == NULL) {
+        return UMI_STATUS_NOT_FOUND;
+    }
+
+    /* Product identity stays in the Framework portfolio. Desk contributes
+     * only the executable that the current suite build actually produced. */
     (void)memset(&registration, 0, sizeof(registration));
     registration.structure_size = sizeof(registration);
-    registration.application_id = application_id;
-    registration.display_name = display_name;
+    registration.application_id = definition->application_id;
+    registration.display_name = definition->display_name;
     registration.executable_name = executable_name;
     registration.working_directory = "";
-    registration.icon_resource_id = icon_resource_id;
-    registration.default_layout_id = default_layout_id;
-    registration.taskbar_group = taskbar_group;
-    registration.family = family;
-    registration.maturity = installed
-        ? UMI_APPLICATION_AVAILABLE
-        : UMI_APPLICATION_FOUNDATION;
-    registration.entry_kind = entry_kind;
+    registration.icon_resource_id = presentation->icon_resource_id;
+    registration.default_layout_id = presentation->default_layout_id;
+    registration.taskbar_group = presentation->taskbar_group;
+    registration.family = definition->family;
+    registration.maturity = definition->maturity;
+    registration.entry_kind = presentation->entry_kind;
     registration.installed = installed;
     registration.compatible = installed;
     registration.enabled = installed;
-    registration.pinned = pinned;
-    registration.visible_when_unavailable = false;
-    return registration;
+    registration.pinned = installed && presentation->pinned_by_default;
+    registration.visible_when_unavailable =
+        presentation->visible_when_unavailable;
+    *out_registration = registration;
+    return UMI_STATUS_OK;
 }
 
 UmiDesktopModuleConfig umi_desktop_module_config_default(void)
@@ -197,8 +229,11 @@ UmiDesktopModuleConfig umi_desktop_module_config_default(void)
     config.structure_size = sizeof(config);
     config.executable_root = "";
     config.working_directory = "";
-    config.compose_studio = true;
-    config.compose_os_control_centre = true;
+    config.compose_studio = UMICOM_DESKTOP_COMPOSE_STUDIO != 0;
+    config.compose_trader = UMICOM_DESKTOP_COMPOSE_TRADER != 0;
+    config.compose_bank = UMICOM_DESKTOP_COMPOSE_BANK != 0;
+    config.compose_tms = UMICOM_DESKTOP_COMPOSE_TMS != 0;
+    config.compose_os_control_centre = UMICOM_DESKTOP_COMPOSE_OS != 0;
     return config;
 }
 
@@ -228,7 +263,9 @@ UmiStatus umi_desktop_module_create(
     module->revision = 1U;
 
     process_config = umi_process_supervisor_config_default();
-    process_config.capacity = 16U;
+    /* Match the Framework catalogue so every selected product can be
+     * supervised without an unrelated lower process limit. */
+    process_config.capacity = UMI_DESKTOP_MODULE_MAX_PROCESSES;
     status = umi_application_context_hub_create(&module->context_hub);
     if (status == UMI_STATUS_OK) {
         status = umi_desktop_runtime_create(
@@ -275,47 +312,65 @@ UmiStatus umi_desktop_module_create(
     }
 
     if (status == UMI_STATUS_OK) {
-        registration = make_registration(
-            "org.umicom.desktop",
-            "Umicom Desk",
-            "umicom-desk",
-            "umicom.icon.application.desktop",
-            "mosaic",
-            "system",
-            UMI_APPLICATION_FAMILY_PLATFORM,
-            UMI_APPLICATION_ENTRY_SYSTEM,
-            true,
-            true);
+        status = make_registration(
+            "org.umicom.desktop", "umicom-desk", true, &registration);
+    }
+    if (status == UMI_STATUS_OK) {
         status = umi_desk_runtime_upsert_application(
             module->desk_runtime, &registration);
     }
     if (status == UMI_STATUS_OK) {
-        registration = make_registration(
+        status = make_registration(
             "org.umicom.studio",
-            "Umicom Studio IDE",
-            "umicom-studio-ide",
-            "umicom.icon.application.studio",
-            "develop",
-            "development",
-            UMI_APPLICATION_FAMILY_DEVELOPMENT,
-            UMI_APPLICATION_ENTRY_WORKBENCH,
+            UMICOM_DESKTOP_STUDIO_EXECUTABLE,
             effective.compose_studio,
-            effective.compose_studio);
+            &registration);
+    }
+    if (status == UMI_STATUS_OK) {
         status = umi_desk_runtime_upsert_application(
             module->desk_runtime, &registration);
     }
     if (status == UMI_STATUS_OK) {
-        registration = make_registration(
+        status = make_registration(
+            "org.umicom.trader",
+            UMICOM_DESKTOP_TRADER_EXECUTABLE,
+            effective.compose_trader,
+            &registration);
+    }
+    if (status == UMI_STATUS_OK) {
+        status = umi_desk_runtime_upsert_application(
+            module->desk_runtime, &registration);
+    }
+    if (status == UMI_STATUS_OK) {
+        status = make_registration(
+            "org.umicom.bank",
+            "umicom-bank-console",
+            effective.compose_bank,
+            &registration);
+    }
+    if (status == UMI_STATUS_OK) {
+        status = umi_desk_runtime_upsert_application(
+            module->desk_runtime, &registration);
+    }
+    if (status == UMI_STATUS_OK) {
+        status = make_registration(
+            "org.umicom.tms",
+            "umicom-tms-console",
+            effective.compose_tms,
+            &registration);
+    }
+    if (status == UMI_STATUS_OK) {
+        status = umi_desk_runtime_upsert_application(
+            module->desk_runtime, &registration);
+    }
+    if (status == UMI_STATUS_OK) {
+        status = make_registration(
             "org.umicom.os",
-            "Umicom OS Control Centre",
             "umicom-os-control-centre",
-            "umicom.icon.application.os",
-            "system",
-            "system",
-            UMI_APPLICATION_FAMILY_OPERATING_SYSTEM,
-            UMI_APPLICATION_ENTRY_SYSTEM,
             effective.compose_os_control_centre,
-            effective.compose_os_control_centre);
+            &registration);
+    }
+    if (status == UMI_STATUS_OK) {
         status = umi_desk_runtime_upsert_application(
             module->desk_runtime, &registration);
     }

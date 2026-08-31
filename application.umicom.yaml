@@ -47,3 +47,8 @@ boundaries:
   scans_arbitrary_application_folders: false
   launches_through_framework: true
   stores_widget_trees_as_layouts: false
+
+installation:
+  component: Desktop
+  required: true
+  show_in_application_launcher: false
