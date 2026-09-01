@@ -3,7 +3,8 @@
  * File: src/gtk/main.c
  *
  * PURPOSE:
- *   Start Umicom Desk with Framework-owned launcher services and the reusable cross-application context-link strip.
+ *   Start Umicom Desk with Framework-owned launcher services and the reusable
+ *   cross-application context-link strip.
  *
  * AUTHOR AND ORGANISATION:
  * Sammy Hegab
@@ -164,6 +165,10 @@ int main(int argc, char **argv)
     UmiDesktopGtkRun run = {0};
     char *absolute_program;
     int result;
+
+    /* The packaged desktop entry and executable use this stable program name
+     * to select the shared Umicom icon rather than the toolkit fallback. */
+    g_set_prgname("umicom-desk");
 
     absolute_program = g_canonicalize_filename(
         argc > 0 ? argv[0] : ".", NULL);

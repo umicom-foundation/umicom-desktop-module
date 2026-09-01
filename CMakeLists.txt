@@ -131,6 +131,24 @@ if(UMICOM_DESKTOP_BUILD_GTK)
     )
     umicom_apply_warnings(umicom-desk)
     umicom_apply_sanitizers(umicom-desk)
+    if(NOT COMMAND umicom_apply_application_branding)
+        include(
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../framework/cmake/UmicomApplicationBranding.cmake")
+    endif()
+    # Desk uses the same native icon and runtime vectors as every graphical
+    # Umicom application, while keeping its product name as ordinary text.
+    umicom_apply_application_branding(
+        TARGET umicom-desk
+        PRODUCT_NAME "Umicom Desk"
+        INTERNAL_NAME "umicom-desk"
+        APPLICATION_ID "org.umicom.desktop"
+        VERSION_MAJOR ${PROJECT_VERSION_MAJOR}
+        VERSION_MINOR ${PROJECT_VERSION_MINOR}
+        VERSION_PATCH ${PROJECT_VERSION_PATCH}
+        RESOURCE_ROOT
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../framework/resources"
+        DESKTOP_ENTRY
+        WINDOWS_GUI)
 endif()
 
 if(BUILD_TESTING)
