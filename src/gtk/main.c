@@ -17,13 +17,16 @@
 
 #include "umicom/desktop_module/context_link_centre.h"
 #include "umicom/desktop_module/desktop_module.h"
+#include "umicom/ui/appearance_catalogue.h"
 #include "umicom/ui/gtk4/desk.h"
+#include "umicom/ui/gtk4/workstation/shell_header.h"
 #include "umicom/workbench_context_host/gtk4.h"
 
 typedef struct UmiDesktopGtkRun {
     UmiDesktopModule *module;
     UmiGtk4Desk *desk;
     UmiDesktopContextLinkCentre *context_links;
+    UmiGtk4WorkstationShellHeader *identity;
     GtkWidget *context_strip;
     GtkWidget *context_root;
     char *executable_root;
@@ -34,6 +37,9 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
     GtkWindow *window;
     GtkWidget *existing;
     GtkWidget *root;
+    UmiGtk4WorkstationShellHeaderConfig identity_config;
+    UmiUiAppearanceProfile appearance;
+    UmiStatus status;
 
     if (run == NULL || run->desk == NULL || run->context_links == NULL) {
         return UMI_STATUS_INVALID_ARGUMENT;
@@ -51,15 +57,39 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
         return UMI_STATUS_OUT_OF_MEMORY;
     }
 
+    /* Desk uses the same Framework identity component as product workstations.
+     * The executable directory contains the SVG files staged by packaging. */
+    identity_config = umi_gtk4_ws_shell_header_config_default(
+        "org.umicom.desktop", "Umicom Desk");
+    identity_config.subtitle = "Applications and workspaces";
+    identity_config.resource_root = run->executable_root;
+    status = umi_gtk4_ws_shell_header_create_managed(
+        &identity_config, &run->identity);
+    if (status != UMI_STATUS_OK) {
+        if (existing != NULL) g_object_unref(existing);
+        g_object_unref(root);
+        return status;
+    }
+    if (umi_ui_appearance_catalogue_find(
+            "umicom-dark", &appearance) == UMI_STATUS_OK) {
+        (void)umi_gtk4_ws_shell_header_apply_appearance(
+            run->identity, &appearance);
+    }
+
     run->context_strip = umi_workbench_context_host_gtk4_strip_new(
         umi_desktop_context_link_centre_host(run->context_links));
     if (run->context_strip == NULL) {
         if (existing != NULL) g_object_unref(existing);
+        umi_gtk4_ws_shell_header_destroy(run->identity);
+        run->identity = NULL;
         g_object_unref(root);
         return UMI_STATUS_OUT_OF_MEMORY;
     }
 
     gtk_widget_add_css_class(root, "umicom-desk-context-root");
+    gtk_box_append(
+        GTK_BOX(root),
+        umi_gtk4_ws_shell_header_widget(run->identity));
     gtk_box_append(GTK_BOX(root), run->context_strip);
 
     if (existing != NULL) {
@@ -193,6 +223,10 @@ int main(int argc, char **argv)
      * Destroy the GTK window and its signal closures before releasing the
      * toolkit-neutral host borrowed by the context-strip callbacks.
      */
+    /* Release the lightweight identity controller before its Desk-owned GTK
+     * widget tree is destroyed. */
+    umi_gtk4_ws_shell_header_destroy(run.identity);
+    run.identity = NULL;
     umi_gtk4_desk_destroy(run.desk);
     run.desk = NULL;
     run.context_strip = NULL;
