@@ -488,6 +488,30 @@ UmiStatus umi_desktop_module_snapshot(
     return UMI_STATUS_OK;
 }
 
+/* Join the current Desk choices to Framework guidance without executing them. */
+UmiStatus umi_desktop_module_guided_launch_plan(
+    UmiDesktopModule *module,
+    const UmiProductWorkspaceGuidePortfolio *portfolio,
+    UmiProductGuidedLaunchPlan *out_plan)
+{
+    UmiApplicationLaunchSelection *selection;
+
+    /* Desk, suite guidance and destination storage are all required inputs. */
+    if (module == NULL || portfolio == NULL || out_plan == NULL) {
+        return UMI_STATUS_INVALID_ARGUMENT;
+    }
+
+    selection = umi_desk_runtime_launch_selection(module->desk_runtime);
+    /* A missing selection indicates an incomplete or damaged Desk runtime. */
+    if (selection == NULL) {
+        return UMI_STATUS_INVALID_STATE;
+    }
+
+    /* Framework owns the join, validation and beginner-readable explanations. */
+    return umi_product_guided_launch_plan_build(
+        selection, portfolio, out_plan);
+}
+
 UmiDeskRuntime *umi_desktop_module_desk_runtime(
     UmiDesktopModule *module)
 {

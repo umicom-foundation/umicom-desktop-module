@@ -20,6 +20,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "umicom/application/productisation/launch_guidance.h"
 #include "umicom/desktop/desk_runtime.h"
 
 #ifdef __cplusplus
@@ -60,6 +61,12 @@ UmiStatus umi_desktop_module_poll(UmiDesktopModule *module);
 UmiStatus umi_desktop_module_snapshot(
     const UmiDesktopModule *module,
     UmiDesktopModuleSnapshot *out_snapshot);
+
+/* Join this Desk selection to suite guidance without starting any process. */
+UmiStatus umi_desktop_module_guided_launch_plan(
+    UmiDesktopModule *module,
+    const UmiProductWorkspaceGuidePortfolio *portfolio,
+    UmiProductGuidedLaunchPlan *out_plan);
 
 UmiDeskRuntime *umi_desktop_module_desk_runtime(
     UmiDesktopModule *module);

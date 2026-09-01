@@ -39,6 +39,12 @@ checkbox list. Several products can be selected and opened together. The
 selection and launch report are Framework models; this module only supplies
 the suite composition and supervised process adapter.
 
+Before execution, the module can request a Framework guided launch plan. This
+read-only plan tells the interface which selected applications will start,
+which running applications will be brought forward, which workspace is the
+recommended starting point, and why a catalogue item is unavailable. The
+module does not copy the joining or validation rules.
+
 ## Architectural rules
 
 - The Master Controller owns application runtime mutations.
@@ -46,6 +52,8 @@ the suite composition and supervised process adapter.
 - The taskbar renders validated runtime records, not arbitrary directories.
 - Application processes start through the Framework launcher and process
   supervisor.
+- Launch previews never start a process and must be refreshed after the
+  selection changes.
 - Layouts remain semantic and toolkit-neutral.
 - User and session layouts will be persisted through the Data Server.
 - Linux kernel, boot, drivers and recovery remain outside this repository.

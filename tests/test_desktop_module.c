@@ -36,6 +36,10 @@ int main(void)
     UmiDesktopModuleSnapshot snapshot;
     UmiApplicationRuntimeRecord record;
     UmiApplicationLaunchSelectionSnapshot launch_selection;
+    UmiApplicationLaunchSelection *selection;
+    UmiProductWorkspaceGuidePortfolio empty_portfolio = {0};
+    UmiProductGuidedLaunchPlan guided_plan;
+    const UmiProductGuidedLaunchEntry *guided_entry;
 
     REQUIRE(umi_desktop_module_create(NULL, &module) == UMI_STATUS_OK);
     REQUIRE(umi_desktop_module_start(module) == UMI_STATUS_OK);
@@ -53,11 +57,27 @@ int main(void)
     REQUIRE(record.installed);
     REQUIRE(strcmp(record.executable_name,
                    UMICOM_DESKTOP_STUDIO_EXECUTABLE) == 0);
+    selection = umi_desk_runtime_launch_selection(
+        umi_desktop_module_desk_runtime(module));
     REQUIRE(umi_application_launch_selection_snapshot(
-                umi_desk_runtime_launch_selection(
-                    umi_desktop_module_desk_runtime(module)),
-                &launch_selection) == UMI_STATUS_OK);
+                selection, &launch_selection) == UMI_STATUS_OK);
     REQUIRE(launch_selection.eligible_count >= 1U);
+    /* An empty suite portfolio demonstrates the explicit missing-guide warning. */
+    empty_portfolio.structure_size =
+        (uint32_t)sizeof(empty_portfolio);
+    REQUIRE(umi_application_launch_selection_set_selected(
+                selection, "org.umicom.studio", true) == UMI_STATUS_OK);
+    REQUIRE(umi_desktop_module_guided_launch_plan(
+                module, &empty_portfolio, &guided_plan) == UMI_STATUS_OK);
+    REQUIRE(guided_plan.executable);
+    REQUIRE(guided_plan.selected_count == 1U);
+    REQUIRE(guided_plan.guidance_warning_count == 1U);
+    guided_entry = umi_product_guided_launch_plan_find(
+        &guided_plan, "org.umicom.studio");
+    REQUIRE(guided_entry != NULL);
+    REQUIRE(guided_entry->guidance_state ==
+            UMI_PRODUCT_LAUNCH_GUIDANCE_MISSING_GUIDE);
+    REQUIRE(guided_entry->ready_to_execute);
     REQUIRE(umi_desktop_module_stop(module) == UMI_STATUS_OK);
     umi_desktop_module_destroy(module);
     return 0;
