@@ -39,11 +39,13 @@ struct UmiDesktopContextLinkCentre {
     uint64_t revision;
 };
 
+/* Provide the kind mask operation used by this module and its client applications. */
 static uint64_t kind_mask(UmiContextKind kind)
 {
     return umi_workbench_context_host_kind_mask(kind);
 }
 
+/* Provide the add group operation used by this module and its client applications. */
 static UmiStatus add_group(
     UmiWorkbenchContextHostProfile *profile,
     const char *group_id,
@@ -57,6 +59,7 @@ static UmiStatus add_group(
     umi_workbench_context_host_group_definition_init(&group, group_id);
     status = umi_workbench_context_host_copy_text(
         group.title, sizeof(group.title), title);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     group.colour = colour;
     group.allowed_kinds_mask = allowed;
@@ -65,6 +68,7 @@ static UmiStatus add_group(
     return umi_workbench_context_host_profile_add_group(profile, &group);
 }
 
+/* Provide the add endpoint operation used by this module and its client applications. */
 static UmiStatus add_endpoint(
     UmiWorkbenchContextHostProfile *profile,
     const char *endpoint_id,
@@ -82,9 +86,11 @@ static UmiStatus add_endpoint(
     umi_workbench_context_host_endpoint_init(&endpoint, endpoint_id);
     status = umi_workbench_context_host_endpoint_set_identity(
         &endpoint, panel_id, application_id, display_name);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     status = umi_workbench_context_host_endpoint_set_group(
         &endpoint, group_id, mode);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     endpoint.role = role;
     endpoint.accepted_kinds_mask = accepted;
@@ -93,6 +99,10 @@ static UmiStatus add_endpoint(
     return umi_workbench_context_host_profile_add_endpoint(profile, &endpoint);
 }
 
+/*
+ * Provide the add launcher binding operation used by this module and its client
+ * applications.
+ */
 static UmiStatus add_launcher_binding(
     UmiWorkbenchContextHostProfile *profile,
     const char *endpoint_id,
@@ -112,6 +122,7 @@ static UmiStatus add_launcher_binding(
         published);
 }
 
+/* Provide the build profile operation used by this module and its client applications. */
 static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
 {
     const uint64_t selection = kind_mask(UMI_CONTEXT_KIND_SELECTION);
@@ -127,6 +138,7 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         profile, "desktop.context.profile", "org.umicom.desktop");
     status = umi_workbench_context_host_profile_set_title(
         profile, "Umicom Desk Linked Applications");
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
 
     status = add_group(
@@ -136,6 +148,7 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         UMI_CONTEXT_COLOUR_YELLOW,
         selection | workspace,
         true);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     status = add_group(
         profile,
@@ -144,6 +157,7 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         UMI_CONTEXT_COLOUR_BLUE,
         selection | project | source | workspace,
         false);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     status = add_group(
         profile,
@@ -152,6 +166,7 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         UMI_CONTEXT_COLOUR_RED,
         selection | instrument | account | trade,
         false);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     status = add_group(
         profile,
@@ -160,6 +175,7 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         UMI_CONTEXT_COLOUR_GREEN,
         selection | account | trade | workspace,
         false);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     status = add_group(
         profile,
@@ -168,6 +184,7 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         UMI_CONTEXT_COLOUR_PURPLE,
         selection | project | source | workspace,
         false);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     status = add_group(
         profile,
@@ -176,6 +193,7 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         UMI_CONTEXT_COLOUR_CYAN,
         selection | project | workspace,
         false);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
 
     /*
@@ -189,36 +207,42 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         "desktop.context.launcher.system",
         UMI_DESKTOP_CONTEXT_GROUP_SYSTEM,
         selection);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     status = add_launcher_binding(
         profile,
         "desktop.context.launcher.development",
         UMI_DESKTOP_CONTEXT_GROUP_DEVELOPMENT,
         selection);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     status = add_launcher_binding(
         profile,
         "desktop.context.launcher.trading",
         UMI_DESKTOP_CONTEXT_GROUP_TRADING,
         selection);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     status = add_launcher_binding(
         profile,
         "desktop.context.launcher.operations",
         UMI_DESKTOP_CONTEXT_GROUP_OPERATIONS,
         selection);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     status = add_launcher_binding(
         profile,
         "desktop.context.launcher.ai",
         UMI_DESKTOP_CONTEXT_GROUP_AI,
         selection);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     status = add_launcher_binding(
         profile,
         "desktop.context.launcher.data",
         UMI_DESKTOP_CONTEXT_GROUP_DATA,
         selection);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
 
     status = add_endpoint(
@@ -232,6 +256,7 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         UMI_WORKBENCH_CONTEXT_LINK_MODE_FOLLOW,
         selection | project | source | workspace,
         0U);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
 
     status = add_endpoint(
@@ -245,6 +270,7 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         UMI_WORKBENCH_CONTEXT_LINK_MODE_FOLLOW,
         selection | workspace,
         0U);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
 
     status = add_endpoint(
@@ -258,6 +284,7 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         UMI_WORKBENCH_CONTEXT_LINK_MODE_FOLLOW,
         selection | instrument | account | trade,
         0U);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
 
     status = add_endpoint(
@@ -271,6 +298,7 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         UMI_WORKBENCH_CONTEXT_LINK_MODE_FOLLOW,
         selection | account | trade,
         0U);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
 
     status = add_endpoint(
@@ -284,6 +312,7 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         UMI_WORKBENCH_CONTEXT_LINK_MODE_FOLLOW,
         selection | project | source | workspace,
         0U);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
 
     status = add_endpoint(
@@ -297,6 +326,7 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         UMI_WORKBENCH_CONTEXT_LINK_MODE_FOLLOW,
         selection | account | trade | workspace,
         0U);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
 
     return add_endpoint(
@@ -312,26 +342,42 @@ static UmiStatus build_profile(UmiWorkbenchContextHostProfile *profile)
         0U);
 }
 
+/*
+ * Provide the group for application operation used by this module and its client
+ * applications.
+ */
 static const char *group_for_application(const char *application_id)
 {
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (application_id == NULL) return UMI_DESKTOP_CONTEXT_GROUP_SYSTEM;
+    /* Use the stable identifier comparison to choose the matching record or policy. */
     if (strcmp(application_id, "org.umicom.studio") == 0) {
         return UMI_DESKTOP_CONTEXT_GROUP_DEVELOPMENT;
     }
+    /* Use the stable identifier comparison to choose the matching record or policy. */
     if (strcmp(application_id, "org.umicom.trader") == 0 ||
         strcmp(application_id, "org.umicom.tms") == 0 ||
         strcmp(application_id, "org.umicom.exchange") == 0) {
         return UMI_DESKTOP_CONTEXT_GROUP_TRADING;
     }
+    /* Use the stable identifier comparison to choose the matching record or policy. */
     if (strcmp(application_id, "org.umicom.bank") == 0) {
         return UMI_DESKTOP_CONTEXT_GROUP_OPERATIONS;
     }
+    /* Use the stable identifier comparison to choose the matching record or policy. */
     if (strcmp(application_id, "org.umicom.llm") == 0) {
         return UMI_DESKTOP_CONTEXT_GROUP_AI;
     }
     return UMI_DESKTOP_CONTEXT_GROUP_SYSTEM;
 }
 
+/*
+ * Initialise desktop context link centre from caller-provided values so later operations
+ * receive a known state.
+ */
 UmiStatus umi_desktop_context_link_centre_create(
     UmiDesktopContextLinkCentre **out_centre)
 {
@@ -339,13 +385,25 @@ UmiStatus umi_desktop_context_link_centre_create(
     UmiWorkbenchContextHostConfig config;
     UmiStatus status;
 
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (out_centre == NULL) return UMI_STATUS_INVALID_ARGUMENT;
     *out_centre = NULL;
 
     centre = (UmiDesktopContextLinkCentre *)calloc(1U, sizeof(*centre));
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (centre == NULL) return UMI_STATUS_OUT_OF_MEMORY;
     centre->profile = (UmiWorkbenchContextHostProfile *)calloc(
         1U, sizeof(*centre->profile));
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (centre->profile == NULL) {
         free(centre);
         return UMI_STATUS_OUT_OF_MEMORY;
@@ -357,6 +415,7 @@ UmiStatus umi_desktop_context_link_centre_create(
         &centre->link_controller);
     status = umi_workbench_context_link_slave_controller_start(
         &centre->link_controller);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) {
         umi_desktop_context_link_centre_destroy(centre);
         return status;
@@ -372,13 +431,16 @@ UmiStatus umi_desktop_context_link_centre_create(
         umi_workbench_context_link_slave_controller_service(
             &centre->link_controller),
         &centre->host);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = build_profile(centre->profile);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_workbench_context_host_apply_profile(
             centre->host, centre->profile);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) {
         umi_desktop_context_link_centre_destroy(centre);
         return status;
@@ -388,6 +450,7 @@ UmiStatus umi_desktop_context_link_centre_create(
         &centre->host_controller, centre->host);
     status = umi_workbench_context_host_slave_controller_start(
         &centre->host_controller);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) {
         umi_desktop_context_link_centre_destroy(centre);
         return status;
@@ -397,10 +460,22 @@ UmiStatus umi_desktop_context_link_centre_create(
     return UMI_STATUS_OK;
 }
 
+/*
+ * Release or reset state held by desktop context link centre so the same storage can be
+ * reused safely.
+ */
 void umi_desktop_context_link_centre_destroy(
     UmiDesktopContextLinkCentre *centre)
 {
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (centre == NULL) return;
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (centre->host != NULL) {
         (void)umi_workbench_context_host_slave_controller_stop(
             &centre->host_controller);
@@ -417,6 +492,10 @@ void umi_desktop_context_link_centre_destroy(
     free(centre);
 }
 
+/*
+ * Provide the desktop context link centre refresh operation used by this module and its
+ * client applications.
+ */
 UmiStatus umi_desktop_context_link_centre_refresh(
     UmiDesktopContextLinkCentre *centre,
     UmiDesktopModule *module,
@@ -434,20 +513,31 @@ UmiStatus umi_desktop_context_link_centre_refresh(
     int written;
     UmiStatus status;
 
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (centre == NULL || module == NULL || centre->host == NULL) {
         return UMI_STATUS_INVALID_ARGUMENT;
     }
 
     status = umi_desktop_module_snapshot(module, &snapshot);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     active_application = snapshot.desk.applications.active_application_id;
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (active_application[0] == '\0') return UMI_STATUS_OK;
+    /* Use the stable identifier comparison to choose the matching record or policy. */
     if (strcmp(centre->last_application_id, active_application) == 0) {
         return UMI_STATUS_OK;
     }
 
     catalogue = umi_desk_runtime_applications(
         umi_desktop_module_desk_runtime(module));
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (catalogue != NULL &&
         umi_application_runtime_catalogue_find(
             catalogue, active_application, &record) == UMI_STATUS_OK) {
@@ -459,6 +549,7 @@ UmiStatus umi_desktop_context_link_centre_refresh(
     group_id = group_for_application(active_application);
     status = umi_workbench_context_host_set_active_group(
         centre->host, group_id);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
 
     written = snprintf(
@@ -466,6 +557,7 @@ UmiStatus umi_desktop_context_link_centre_refresh(
         sizeof(context_id),
         "desktop-application-%llu",
         (unsigned long long)centre->publication_sequence++);
+    /* Keep the operation inside its valid bounds before reading, writing or adding data. */
     if (written < 0 || (size_t)written >= sizeof(context_id)) {
         return UMI_STATUS_CAPACITY_EXCEEDED;
     }
@@ -480,16 +572,22 @@ UmiStatus umi_desktop_context_link_centre_refresh(
         taskbar_group,
         layout_id,
         now_ms);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
 
     status = umi_workbench_context_host_copy_text(
         centre->last_application_id,
         sizeof(centre->last_application_id),
         active_application);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) ++centre->revision;
     return status;
 }
 
+/*
+ * Provide the desktop context link centre host operation used by this module and its
+ * client applications.
+ */
 UmiWorkbenchContextHost *umi_desktop_context_link_centre_host(
     UmiDesktopContextLinkCentre *centre)
 {

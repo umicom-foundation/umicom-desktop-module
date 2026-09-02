@@ -23,10 +23,22 @@
 extern "C" {
 #endif
 
+/**
+ * Provide the desktop module productisation contribution operation used by this module and
+ * its client applications.
+ */
 const UmiProductApplicationAdoption *
 umi_desktop_module_productisation_contribution(void);
+/**
+ * Provide the desktop module productisation snapshot operation used by this module and its
+ * client applications.
+ */
 UmiStatus umi_desktop_module_productisation_snapshot(
     UmiProductApplicationAdoptionSnapshot *out_snapshot);
+/**
+ * Initialise desktop module product session from caller-provided values so later
+ * operations receive a known state.
+ */
 UmiStatus umi_desktop_module_product_session_init(
     UmiProductApplicationSession *out_session);
 /* Build welcome-screen workspace choices from the canonical Framework profile. */

@@ -48,6 +48,12 @@
 #ifndef UMICOM_DESKTOP_TRADER_EXECUTABLE
 #define UMICOM_DESKTOP_TRADER_EXECUTABLE "umicom-trader"
 #endif
+#ifndef UMICOM_DESKTOP_BANK_EXECUTABLE
+#define UMICOM_DESKTOP_BANK_EXECUTABLE "umicom-bank"
+#endif
+#ifndef UMICOM_DESKTOP_TMS_EXECUTABLE
+#define UMICOM_DESKTOP_TMS_EXECUTABLE "umicom-tms"
+#endif
 
 typedef struct UmiDesktopModuleProcess {
     char application_id[UMI_APPLICATION_RUNTIME_ID_CAPACITY];
@@ -68,21 +74,28 @@ struct UmiDesktopModule {
     uint64_t revision;
 };
 
+/* Provide the copy text operation used by this module and its client applications. */
 static UmiStatus copy_text(char *destination,
                            size_t capacity,
                            const char *source)
 {
     size_t length;
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (destination == NULL || capacity == 0U ||
         source == NULL || source[0] == '\0') {
         return UMI_STATUS_INVALID_ARGUMENT;
     }
     length = strlen(source);
+    /* Keep the operation inside its valid bounds before reading, writing or adding data. */
     if (length >= capacity) return UMI_STATUS_CAPACITY_EXCEEDED;
     (void)memcpy(destination, source, length + 1U);
     return UMI_STATUS_OK;
 }
 
+/* Provide the process start operation used by this module and its client applications. */
 static UmiStatus process_start(
     void *context,
     const UmiApplicationLaunchPlan *plan,
@@ -95,12 +108,18 @@ static UmiStatus process_start(
     UmiStatus status;
     size_t index;
 
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (module == NULL || plan == NULL || out_process_token == NULL) {
         return UMI_STATUS_INVALID_ARGUMENT;
     }
+    /* Keep the operation inside its valid bounds before reading, writing or adding data. */
     if (module->process_count >= UMI_DESKTOP_MODULE_MAX_PROCESSES) {
         return UMI_STATUS_CAPACITY_EXCEEDED;
     }
+    /* Visit each bounded item once so every record receives the same rule. */
     for (index = 0U; index < plan->argument_count; ++index) {
         arguments[index] = plan->arguments[index];
     }
@@ -126,12 +145,14 @@ static UmiStatus process_start(
         plan->application_id,
         &request,
         &job_id);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
 
     status = copy_text(
         module->process_map[module->process_count].application_id,
         sizeof(module->process_map[module->process_count].application_id),
         plan->application_id);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) {
         (void)umi_process_supervisor_cancel(module->processes, job_id);
         return status;
@@ -144,6 +165,7 @@ static UmiStatus process_start(
     return UMI_STATUS_OK;
 }
 
+/* Provide the process activate operation used by this module and its client applications. */
 static UmiStatus process_activate(
     void *context,
     const char *application_id,
@@ -152,6 +174,10 @@ static UmiStatus process_activate(
     UmiDesktopModule *module = (UmiDesktopModule *)context;
     (void)application_id;
     (void)process_token;
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (module == NULL) return UMI_STATUS_INVALID_ARGUMENT;
 
     /*
@@ -163,6 +189,7 @@ static UmiStatus process_activate(
     return UMI_STATUS_OK;
 }
 
+/* Provide the process stop operation used by this module and its client applications. */
 static UmiStatus process_stop(
     void *context,
     const char *application_id,
@@ -172,6 +199,10 @@ static UmiStatus process_stop(
     UmiDesktopModule *module = (UmiDesktopModule *)context;
     (void)application_id;
     (void)graceful_timeout_ms;
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (module == NULL || process_token == 0U) {
         return UMI_STATUS_INVALID_ARGUMENT;
     }
@@ -179,6 +210,7 @@ static UmiStatus process_stop(
         module->processes, (UmiProcessJobId)process_token);
 }
 
+/* Provide the make registration operation used by this module and its client applications. */
 static UmiStatus make_registration(
     const char *application_id,
     const char *executable_name,
@@ -188,12 +220,20 @@ static UmiStatus make_registration(
     const UmiApplicationDefinition *definition;
     const UmiApplicationPresentation *presentation;
     UmiApplicationRuntimeRegistration registration;
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (application_id == NULL || executable_name == NULL ||
         out_registration == NULL) {
         return UMI_STATUS_INVALID_ARGUMENT;
     }
     definition = umi_application_portfolio_find(application_id);
     presentation = umi_application_presentation_find(application_id);
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (definition == NULL || presentation == NULL) {
         return UMI_STATUS_NOT_FOUND;
     }
@@ -222,6 +262,10 @@ static UmiStatus make_registration(
     return UMI_STATUS_OK;
 }
 
+/*
+ * Provide the desktop module config default operation used by this module and its client
+ * applications.
+ */
 UmiDesktopModuleConfig umi_desktop_module_config_default(void)
 {
     UmiDesktopModuleConfig config;
@@ -237,6 +281,10 @@ UmiDesktopModuleConfig umi_desktop_module_config_default(void)
     return config;
 }
 
+/*
+ * Initialise desktop module from caller-provided values so later operations receive a
+ * known state.
+ */
 UmiStatus umi_desktop_module_create(
     const UmiDesktopModuleConfig *config,
     UmiDesktopModule **out_module)
@@ -249,16 +297,25 @@ UmiStatus umi_desktop_module_create(
     UmiApplicationRuntimeRegistration registration;
     UmiStatus status;
 
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (out_module == NULL) return UMI_STATUS_INVALID_ARGUMENT;
     *out_module = NULL;
     effective = config != NULL
         ? *config
         : umi_desktop_module_config_default();
+    /* Apply this branch only when its contract condition is satisfied. */
     if (effective.structure_size < sizeof(UmiDesktopModuleConfig)) {
         return UMI_STATUS_INVALID_ARGUMENT;
     }
 
     module = (UmiDesktopModule *)calloc(1U, sizeof(*module));
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (module == NULL) return UMI_STATUS_OUT_OF_MEMORY;
     module->revision = 1U;
 
@@ -267,17 +324,21 @@ UmiStatus umi_desktop_module_create(
      * supervised without an unrelated lower process limit. */
     process_config.capacity = UMI_DESKTOP_MODULE_MAX_PROCESSES;
     status = umi_application_context_hub_create(&module->context_hub);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_desktop_runtime_create(
             module->context_hub, &module->desktop_runtime);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_desktop_runtime_seed(module->desktop_runtime);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_desktop_shell_model_create(
             module->desktop_runtime, &module->shell_model);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_process_supervisor_create(
             &process_config, &module->processes);
@@ -303,6 +364,7 @@ UmiStatus umi_desktop_module_create(
 #else
     desk_config.launcher.executable_suffix = "";
 #endif
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_desk_runtime_create(
             module->shell_model,
@@ -311,14 +373,17 @@ UmiStatus umi_desktop_module_create(
             &module->desk_runtime);
     }
 
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = make_registration(
             "org.umicom.desktop", "umicom-desk", true, &registration);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_desk_runtime_upsert_application(
             module->desk_runtime, &registration);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = make_registration(
             "org.umicom.studio",
@@ -326,10 +391,12 @@ UmiStatus umi_desktop_module_create(
             effective.compose_studio,
             &registration);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_desk_runtime_upsert_application(
             module->desk_runtime, &registration);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = make_registration(
             "org.umicom.trader",
@@ -337,32 +404,38 @@ UmiStatus umi_desktop_module_create(
             effective.compose_trader,
             &registration);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_desk_runtime_upsert_application(
             module->desk_runtime, &registration);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = make_registration(
             "org.umicom.bank",
-            "umicom-bank-console",
+            UMICOM_DESKTOP_BANK_EXECUTABLE,
             effective.compose_bank,
             &registration);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_desk_runtime_upsert_application(
             module->desk_runtime, &registration);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = make_registration(
             "org.umicom.tms",
-            "umicom-tms-console",
+            UMICOM_DESKTOP_TMS_EXECUTABLE,
             effective.compose_tms,
             &registration);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_desk_runtime_upsert_application(
             module->desk_runtime, &registration);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = make_registration(
             "org.umicom.os",
@@ -370,25 +443,30 @@ UmiStatus umi_desktop_module_create(
             effective.compose_os_control_centre,
             &registration);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_desk_runtime_upsert_application(
             module->desk_runtime, &registration);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         UmiApplicationRuntimeCatalogue *catalogue =
             umi_desk_runtime_applications(module->desk_runtime);
         status = umi_application_runtime_catalogue_set_state(
             catalogue, "org.umicom.desktop",
             UMI_APPLICATION_RUNTIME_RUNNING, "");
+        /* Preserve the original failure result so the caller can respond to the correct cause. */
         if (status == UMI_STATUS_OK) {
             status = umi_application_runtime_catalogue_activate(
                 catalogue, "org.umicom.desktop");
         }
+        /* Preserve the original failure result so the caller can respond to the correct cause. */
         if (status == UMI_STATUS_OK) {
             status = umi_desk_runtime_refresh(module->desk_runtime);
         }
     }
 
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) {
         umi_desktop_module_destroy(module);
         return status;
@@ -397,9 +475,18 @@ UmiStatus umi_desktop_module_create(
     return UMI_STATUS_OK;
 }
 
+/* Release or reset state held by desktop module so the same storage can be reused safely. */
 void umi_desktop_module_destroy(UmiDesktopModule *module)
 {
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (module == NULL) return;
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (module->processes != NULL) {
         umi_process_supervisor_destroy(module->processes);
     }
@@ -410,41 +497,72 @@ void umi_desktop_module_destroy(UmiDesktopModule *module)
     free(module);
 }
 
+/*
+ * Provide the desktop module start operation used by this module and its client
+ * applications.
+ */
 UmiStatus umi_desktop_module_start(UmiDesktopModule *module)
 {
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (module == NULL) return UMI_STATUS_INVALID_ARGUMENT;
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (module->started) return UMI_STATUS_OK;
     module->started = true;
     module->revision += 1U;
     return UMI_STATUS_OK;
 }
 
+/*
+ * Provide the desktop module stop operation used by this module and its client
+ * applications.
+ */
 UmiStatus umi_desktop_module_stop(UmiDesktopModule *module)
 {
     UmiStatus status;
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (module == NULL) return UMI_STATUS_INVALID_ARGUMENT;
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (!module->started) return UMI_STATUS_OK;
     status = umi_process_supervisor_shutdown(module->processes);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     module->started = false;
     module->revision += 1U;
     return UMI_STATUS_OK;
 }
 
+/*
+ * Provide the desktop module poll operation used by this module and its client
+ * applications.
+ */
 UmiStatus umi_desktop_module_poll(UmiDesktopModule *module)
 {
     size_t index;
     UmiStatus status = UMI_STATUS_OK;
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (module == NULL) return UMI_STATUS_INVALID_ARGUMENT;
+    /* Visit each bounded item once so every record receives the same rule. */
     for (index = 0U; index < module->process_count; ++index) {
         UmiDesktopModuleProcess *mapping = &module->process_map[index];
         UmiProcessJobSnapshot process;
         int exit_code;
         const char *message;
+        /* Apply this branch only when its contract condition is satisfied. */
         if (mapping->reconciled) continue;
         status = umi_process_supervisor_snapshot(
             module->processes, mapping->job_id, &process);
+        /* Preserve the original failure result so the caller can respond to the correct cause. */
         if (status != UMI_STATUS_OK) return status;
+        /* Apply this branch only when its contract condition is satisfied. */
         if (process.state == UMI_PROCESS_JOB_CREATED ||
             process.state == UMI_PROCESS_JOB_RUNNING) {
             continue;
@@ -460,6 +578,7 @@ UmiStatus umi_desktop_module_poll(UmiDesktopModule *module)
             mapping->application_id,
             exit_code,
             message);
+        /* Preserve the original failure result so the caller can respond to the correct cause. */
         if (status != UMI_STATUS_OK) return status;
         mapping->reconciled = true;
         module->completed_process_count += 1U;
@@ -468,17 +587,26 @@ UmiStatus umi_desktop_module_poll(UmiDesktopModule *module)
     return UMI_STATUS_OK;
 }
 
+/*
+ * Provide the desktop module snapshot operation used by this module and its client
+ * applications.
+ */
 UmiStatus umi_desktop_module_snapshot(
     const UmiDesktopModule *module,
     UmiDesktopModuleSnapshot *out_snapshot)
 {
     UmiStatus status;
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (module == NULL || out_snapshot == NULL) {
         return UMI_STATUS_INVALID_ARGUMENT;
     }
     (void)memset(out_snapshot, 0, sizeof(*out_snapshot));
     status = umi_desk_runtime_snapshot(
         module->desk_runtime, &out_snapshot->desk);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     out_snapshot->started = module->started;
     out_snapshot->supervised_process_count = module->process_count;
@@ -512,12 +640,20 @@ UmiStatus umi_desktop_module_guided_launch_plan(
         selection, portfolio, out_plan);
 }
 
+/*
+ * Provide the desktop module desk runtime operation used by this module and its client
+ * applications.
+ */
 UmiDeskRuntime *umi_desktop_module_desk_runtime(
     UmiDesktopModule *module)
 {
     return module != NULL ? module->desk_runtime : NULL;
 }
 
+/*
+ * Provide the desktop module shell model operation used by this module and its client
+ * applications.
+ */
 UmiDesktopShellModel *umi_desktop_module_shell_model(
     UmiDesktopModule *module)
 {

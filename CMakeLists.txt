@@ -51,18 +51,28 @@ set(UMICOM_DESKTOP_STUDIO_EXECUTABLE "umicom-studio-ide" CACHE STRING
     "Studio executable registered with Umicom Desk")
 set(UMICOM_DESKTOP_TRADER_EXECUTABLE "umicom-trader" CACHE STRING
     "Trader executable registered with Umicom Desk")
+set(UMICOM_DESKTOP_BANK_EXECUTABLE "umicom-bank" CACHE STRING
+    "Bank executable registered with Umicom Desk")
+set(UMICOM_DESKTOP_TMS_EXECUTABLE "umicom-tms" CACHE STRING
+    "TMS executable registered with Umicom Desk")
 
 include(CTest)
 include(GNUInstallDirs)
 
+# Load the dependency only when the parent build has not already provided its target.
 if(NOT TARGET Umicom::Framework)
     find_package(UmicomFramework CONFIG REQUIRED)
 endif()
 
+# Define the local fallback only when the parent build did not provide the shared helper.
 if(NOT COMMAND umicom_apply_warnings)
+    # Define the apply warnings build helper so parent and application projects apply one
+    # consistent rule.
     function(umicom_apply_warnings target)
+        # Select the warning options understood by the active compiler.
         if(MSVC)
             target_compile_options(${target} PRIVATE /W4)
+        # Use this fallback path when the earlier condition does not apply.
         else()
             target_compile_options(${target} PRIVATE
                 -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
@@ -70,7 +80,10 @@ if(NOT COMMAND umicom_apply_warnings)
     endfunction()
 endif()
 
+# Define the local fallback only when the parent build did not provide the shared helper.
 if(NOT COMMAND umicom_apply_sanitizers)
+    # Define the apply sanitizers build helper so parent and application projects apply one
+    # consistent rule.
     function(umicom_apply_sanitizers target)
     endfunction()
 endif()
@@ -96,6 +109,8 @@ target_compile_definitions(umicom_desktop_module PUBLIC
     UMICOM_DESKTOP_COMPOSE_OS=$<BOOL:${UMICOM_DESKTOP_COMPOSE_OS}>
     UMICOM_DESKTOP_STUDIO_EXECUTABLE="${UMICOM_DESKTOP_STUDIO_EXECUTABLE}"
     UMICOM_DESKTOP_TRADER_EXECUTABLE="${UMICOM_DESKTOP_TRADER_EXECUTABLE}"
+    UMICOM_DESKTOP_BANK_EXECUTABLE="${UMICOM_DESKTOP_BANK_EXECUTABLE}"
+    UMICOM_DESKTOP_TMS_EXECUTABLE="${UMICOM_DESKTOP_TMS_EXECUTABLE}"
 )
 umicom_apply_warnings(umicom_desktop_module)
 umicom_apply_sanitizers(umicom_desktop_module)
@@ -109,17 +124,21 @@ target_link_libraries(umicom-desk-console PRIVATE
 umicom_apply_warnings(umicom-desk-console)
 umicom_apply_sanitizers(umicom-desk-console)
 
+# Create this optional product surface only when its build option is enabled.
 if(UMICOM_DESKTOP_BUILD_GTK)
+    # Load the dependency only when the parent build has not already provided its target.
     if(NOT TARGET Umicom::ui_gtk4)
         message(FATAL_ERROR
             "UMICOM_DESKTOP_BUILD_GTK is ON but the Framework GTK4 adapter "
             "target Umicom::ui_gtk4 is unavailable.")
     endif()
 
+    # Apply this branch only when its contract condition is satisfied.
     if(WIN32 AND UMICOM_DESKTOP_GUI)
         add_executable(umicom-desk WIN32
             src/gtk/main.c
         )
+    # Use this fallback path when the earlier condition does not apply.
     else()
         add_executable(umicom-desk
             src/gtk/main.c
@@ -131,6 +150,7 @@ if(UMICOM_DESKTOP_BUILD_GTK)
     )
     umicom_apply_warnings(umicom-desk)
     umicom_apply_sanitizers(umicom-desk)
+    # Define the local fallback only when the parent build did not provide the shared helper.
     if(NOT COMMAND umicom_apply_application_branding)
         include(
             "${CMAKE_CURRENT_SOURCE_DIR}/../../framework/cmake/UmicomApplicationBranding.cmake")
@@ -151,6 +171,7 @@ if(UMICOM_DESKTOP_BUILD_GTK)
         WINDOWS_GUI)
 endif()
 
+# Register verification targets only when the developer has enabled testing.
 if(BUILD_TESTING)
     add_executable(umicom-desktop-module-test
         tests/test_desktop_module.c
@@ -174,6 +195,7 @@ install(TARGETS
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+# Configure the optional target only when its feature has created it.
 if(TARGET umicom-desk)
     install(TARGETS umicom-desk
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

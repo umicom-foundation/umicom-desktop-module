@@ -20,6 +20,12 @@
 #ifndef UMICOM_DESKTOP_STUDIO_EXECUTABLE
 #define UMICOM_DESKTOP_STUDIO_EXECUTABLE "umicom-studio-ide"
 #endif
+#ifndef UMICOM_DESKTOP_BANK_EXECUTABLE
+#define UMICOM_DESKTOP_BANK_EXECUTABLE "umicom-bank"
+#endif
+#ifndef UMICOM_DESKTOP_TMS_EXECUTABLE
+#define UMICOM_DESKTOP_TMS_EXECUTABLE "umicom-tms"
+#endif
 
 #define REQUIRE(condition)                                                     \
     do {                                                                       \
@@ -30,6 +36,10 @@
         }                                                                      \
     } while (0)
 
+/*
+ * Start this command or application, report setup failures, and return a process exit code
+ * to the operating system.
+ */
 int main(void)
 {
     UmiDesktopModule *module = NULL;
@@ -57,6 +67,22 @@ int main(void)
     REQUIRE(record.installed);
     REQUIRE(strcmp(record.executable_name,
                    UMICOM_DESKTOP_STUDIO_EXECUTABLE) == 0);
+    /* Desk must launch the native product workstations, while their console
+     * executables remain separate verification tools. */
+    REQUIRE(umi_application_runtime_catalogue_find(
+                umi_desk_runtime_applications(
+                    umi_desktop_module_desk_runtime(module)),
+                "org.umicom.bank",
+                &record) == UMI_STATUS_OK);
+    REQUIRE(strcmp(record.executable_name,
+                   UMICOM_DESKTOP_BANK_EXECUTABLE) == 0);
+    REQUIRE(umi_application_runtime_catalogue_find(
+                umi_desk_runtime_applications(
+                    umi_desktop_module_desk_runtime(module)),
+                "org.umicom.tms",
+                &record) == UMI_STATUS_OK);
+    REQUIRE(strcmp(record.executable_name,
+                   UMICOM_DESKTOP_TMS_EXECUTABLE) == 0);
     selection = umi_desk_runtime_launch_selection(
         umi_desktop_module_desk_runtime(module));
     REQUIRE(umi_application_launch_selection_snapshot(

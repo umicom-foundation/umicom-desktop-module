@@ -27,6 +27,9 @@
 extern "C" {
 #endif
 
+/**
+ * Represent the desktop module config data shared with callers of this public contract.
+ */
 typedef struct UmiDesktopModuleConfig {
     uint32_t structure_size;
     const char *executable_root;
@@ -38,6 +41,9 @@ typedef struct UmiDesktopModuleConfig {
     bool compose_os_control_centre;
 } UmiDesktopModuleConfig;
 
+/**
+ * Represent the desktop module snapshot data shared with callers of this public contract.
+ */
 typedef struct UmiDesktopModuleSnapshot {
     UmiDeskRuntimeSnapshot desk;
     bool started;
@@ -46,18 +52,48 @@ typedef struct UmiDesktopModuleSnapshot {
     uint64_t revision;
 } UmiDesktopModuleSnapshot;
 
+/**
+ * Represent the desktop module data shared with callers of this public contract.
+ */
 typedef struct UmiDesktopModule UmiDesktopModule;
 
+/**
+ * Provide the desktop module config default operation used by this module and its client
+ * applications.
+ */
 UmiDesktopModuleConfig umi_desktop_module_config_default(void);
 
+/**
+ * Initialise desktop module from caller-provided values so later operations receive a
+ * known state.
+ */
 UmiStatus umi_desktop_module_create(
     const UmiDesktopModuleConfig *config,
     UmiDesktopModule **out_module);
+/**
+ * Release or reset state held by desktop module so the same storage can be reused safely.
+ */
 void umi_desktop_module_destroy(UmiDesktopModule *module);
 
+/**
+ * Provide the desktop module start operation used by this module and its client
+ * applications.
+ */
 UmiStatus umi_desktop_module_start(UmiDesktopModule *module);
+/**
+ * Provide the desktop module stop operation used by this module and its client
+ * applications.
+ */
 UmiStatus umi_desktop_module_stop(UmiDesktopModule *module);
+/**
+ * Provide the desktop module poll operation used by this module and its client
+ * applications.
+ */
 UmiStatus umi_desktop_module_poll(UmiDesktopModule *module);
+/**
+ * Provide the desktop module snapshot operation used by this module and its client
+ * applications.
+ */
 UmiStatus umi_desktop_module_snapshot(
     const UmiDesktopModule *module,
     UmiDesktopModuleSnapshot *out_snapshot);
@@ -68,8 +104,16 @@ UmiStatus umi_desktop_module_guided_launch_plan(
     const UmiProductWorkspaceGuidePortfolio *portfolio,
     UmiProductGuidedLaunchPlan *out_plan);
 
+/**
+ * Provide the desktop module desk runtime operation used by this module and its client
+ * applications.
+ */
 UmiDeskRuntime *umi_desktop_module_desk_runtime(
     UmiDesktopModule *module);
+/**
+ * Provide the desktop module shell model operation used by this module and its client
+ * applications.
+ */
 UmiDesktopShellModel *umi_desktop_module_shell_model(
     UmiDesktopModule *module);
 

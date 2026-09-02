@@ -25,16 +25,36 @@
 extern "C" {
 #endif
 
+/**
+ * Represent the desktop context link centre data shared with callers of this public
+ * contract.
+ */
 typedef struct UmiDesktopContextLinkCentre UmiDesktopContextLinkCentre;
 
+/**
+ * Initialise desktop context link centre from caller-provided values so later operations
+ * receive a known state.
+ */
 UmiStatus umi_desktop_context_link_centre_create(
     UmiDesktopContextLinkCentre **out_centre);
+/**
+ * Release or reset state held by desktop context link centre so the same storage can be
+ * reused safely.
+ */
 void umi_desktop_context_link_centre_destroy(
     UmiDesktopContextLinkCentre *centre);
+/**
+ * Provide the desktop context link centre refresh operation used by this module and its
+ * client applications.
+ */
 UmiStatus umi_desktop_context_link_centre_refresh(
     UmiDesktopContextLinkCentre *centre,
     UmiDesktopModule *module,
     uint64_t now_ms);
+/**
+ * Provide the desktop context link centre host operation used by this module and its
+ * client applications.
+ */
 UmiWorkbenchContextHost *umi_desktop_context_link_centre_host(
     UmiDesktopContextLinkCentre *centre);
 

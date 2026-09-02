@@ -32,6 +32,10 @@ typedef struct UmiDesktopGtkRun {
     char *executable_root;
 } UmiDesktopGtkRun;
 
+/*
+ * Provide the attach context strip operation used by this module and its client
+ * applications.
+ */
 static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
 {
     GtkWindow *window;
@@ -41,18 +45,38 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
     UmiUiAppearanceProfile appearance;
     UmiStatus status;
 
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (run == NULL || run->desk == NULL || run->context_links == NULL) {
         return UMI_STATUS_INVALID_ARGUMENT;
     }
 
     window = GTK_WINDOW(umi_gtk4_desk_native_window(run->desk));
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (window == NULL) return UMI_STATUS_INVALID_STATE;
 
     existing = gtk_window_get_child(window);
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (existing != NULL) g_object_ref(existing);
 
     root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (root == NULL) {
+        /*
+         * Protect caller-owned memory by checking that required state is available before it is
+         * used.
+         */
         if (existing != NULL) g_object_unref(existing);
         return UMI_STATUS_OUT_OF_MEMORY;
     }
@@ -65,11 +89,17 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
     identity_config.resource_root = run->executable_root;
     status = umi_gtk4_ws_shell_header_create_managed(
         &identity_config, &run->identity);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) {
+        /*
+         * Protect caller-owned memory by checking that required state is available before it is
+         * used.
+         */
         if (existing != NULL) g_object_unref(existing);
         g_object_unref(root);
         return status;
     }
+    /* Apply this branch only when its contract condition is satisfied. */
     if (umi_ui_appearance_catalogue_find(
             "umicom-dark", &appearance) == UMI_STATUS_OK) {
         (void)umi_gtk4_ws_shell_header_apply_appearance(
@@ -78,7 +108,15 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
 
     run->context_strip = umi_workbench_context_host_gtk4_strip_new(
         umi_desktop_context_link_centre_host(run->context_links));
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (run->context_strip == NULL) {
+        /*
+         * Protect caller-owned memory by checking that required state is available before it is
+         * used.
+         */
         if (existing != NULL) g_object_unref(existing);
         umi_gtk4_ws_shell_header_destroy(run->identity);
         run->identity = NULL;
@@ -92,6 +130,10 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
         umi_gtk4_ws_shell_header_widget(run->identity));
     gtk_box_append(GTK_BOX(root), run->context_strip);
 
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (existing != NULL) {
         gtk_window_set_child(window, NULL);
         gtk_widget_set_hexpand(existing, TRUE);
@@ -105,25 +147,36 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
     return UMI_STATUS_OK;
 }
 
+/* Provide the poll processes operation used by this module and its client applications. */
 static gboolean poll_processes(gpointer user_data)
 {
     UmiDesktopGtkRun *run = (UmiDesktopGtkRun *)user_data;
     UmiStatus status;
 
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (run == NULL || run->module == NULL) return G_SOURCE_REMOVE;
 
     status = umi_desktop_module_poll(run->module);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) {
         g_printerr(
             "Umicom Desk process reconciliation failed: %s\n",
             umi_status_text(status));
     }
 
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (run->context_links != NULL) {
         status = umi_desktop_context_link_centre_refresh(
             run->context_links,
             run->module,
             (uint64_t)(g_get_monotonic_time() / 1000));
+        /* Preserve the original failure result so the caller can respond to the correct cause. */
         if (status != UMI_STATUS_OK) {
             g_printerr(
                 "Umicom Desk context refresh failed: %s\n",
@@ -131,9 +184,17 @@ static gboolean poll_processes(gpointer user_data)
         }
     }
 
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (run->desk != NULL) {
         (void)umi_gtk4_desk_refresh(run->desk);
     }
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (run->context_strip != NULL && run->context_links != NULL) {
         (void)umi_workbench_context_host_gtk4_strip_refresh(
             run->context_strip,
@@ -143,42 +204,54 @@ static gboolean poll_processes(gpointer user_data)
     return G_SOURCE_CONTINUE;
 }
 
+/* Provide the on activate operation used by this module and its client applications. */
 static void on_activate(GtkApplication *application, gpointer user_data)
 {
     UmiDesktopGtkRun *run = (UmiDesktopGtkRun *)user_data;
     UmiDesktopModuleConfig config = umi_desktop_module_config_default();
     UmiStatus status;
 
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (run == NULL || run->module != NULL) return;
     config.executable_root = run->executable_root;
     config.working_directory = run->executable_root;
     status = umi_desktop_module_create(&config, &run->module);
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_desktop_module_start(run->module);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_gtk4_desk_create(
             application,
             umi_desktop_module_desk_runtime(run->module),
             &run->desk);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_gtk4_desk_present(run->desk);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_desktop_context_link_centre_create(
             &run->context_links);
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = umi_desktop_context_link_centre_refresh(
             run->context_links,
             run->module,
             (uint64_t)(g_get_monotonic_time() / 1000));
     }
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = attach_context_strip(run);
     }
 
+    /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) {
         g_printerr(
             "Umicom Desk startup failed: %s\n",
@@ -189,6 +262,10 @@ static void on_activate(GtkApplication *application, gpointer user_data)
     (void)g_timeout_add(250U, poll_processes, run);
 }
 
+/*
+ * Start this command or application, report setup failures, and return a process exit code
+ * to the operating system.
+ */
 int main(int argc, char **argv)
 {
     GtkApplication *application;
@@ -235,6 +312,10 @@ int main(int argc, char **argv)
     umi_desktop_context_link_centre_destroy(run.context_links);
     run.context_links = NULL;
 
+    /*
+     * Protect caller-owned memory by checking that required state is available before it is
+     * used.
+     */
     if (run.module != NULL) {
         (void)umi_desktop_module_stop(run.module);
     }
@@ -248,6 +329,7 @@ int main(int argc, char **argv)
 #ifdef _WIN32
 #include <windows.h>
 
+/* Provide the win main operation used by this module and its client applications. */
 int WINAPI WinMain(
     HINSTANCE instance,
     HINSTANCE previous_instance,
