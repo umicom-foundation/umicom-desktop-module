@@ -88,6 +88,7 @@ int main(void)
     REQUIRE(umi_application_launch_selection_snapshot(
                 selection, &launch_selection) == UMI_STATUS_OK);
     REQUIRE(launch_selection.eligible_count >= 1U);
+    REQUIRE(launch_selection.readiness_blocked_count == 0U);
     /* An empty suite portfolio demonstrates the explicit missing-guide warning. */
     empty_portfolio.structure_size =
         (uint32_t)sizeof(empty_portfolio);
