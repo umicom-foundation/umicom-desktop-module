@@ -173,6 +173,30 @@ endif()
 
 # Register verification targets only when the developer has enabled testing.
 if(BUILD_TESTING)
+    # Exercise the actual native product composition without entering its
+    # application loop, presenting windows, or launching child processes.
+    if(TARGET umicom-desk)
+        add_executable(umicom-desktop-window-titlebar-test
+            tests/test_window_titlebar_gtk4.c
+            src/gtk/main.c)
+        target_include_directories(umicom-desktop-window-titlebar-test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/gtk")
+        target_compile_definitions(umicom-desktop-window-titlebar-test PRIVATE
+            UMICOM_DESKTOP_GTK_NO_ENTRYPOINT=1
+            UMICOM_TEST_BRAND_ICON_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../../framework/resources/brand/umicom-icon.svg")
+        target_link_libraries(umicom-desktop-window-titlebar-test PRIVATE
+            Umicom::desktop_module Umicom::ui_gtk4)
+        umicom_apply_warnings(umicom-desktop-window-titlebar-test)
+        umicom_apply_sanitizers(umicom-desktop-window-titlebar-test)
+        add_test(NAME desktop.window.titlebar.gtk4
+            COMMAND umicom-desktop-window-titlebar-test)
+        set_tests_properties(desktop.window.titlebar.gtk4 PROPERTIES
+            SKIP_RETURN_CODE 77 TIMEOUT 60
+            LABELS "desktop;gtk4;branding;acceptance")
+        if(COMMAND umicom_register_validation_target)
+            umicom_register_validation_target(umicom-desktop-window-titlebar-test)
+        endif()
+    endif()
     add_executable(umicom-desktop-module-test
         tests/test_desktop_module.c
     )

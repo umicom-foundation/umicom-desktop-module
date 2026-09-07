@@ -21,16 +21,7 @@
 #include "umicom/ui/gtk4/desk.h"
 #include "umicom/ui/gtk4/workstation/shell_header.h"
 #include "umicom/workbench_context_host/gtk4.h"
-
-typedef struct UmiDesktopGtkRun {
-    UmiDesktopModule *module;
-    UmiGtk4Desk *desk;
-    UmiDesktopContextLinkCentre *context_links;
-    UmiGtk4WorkstationShellHeader *identity;
-    GtkWidget *context_strip;
-    GtkWidget *context_root;
-    char *executable_root;
-} UmiDesktopGtkRun;
+#include "desktop_window.h"
 
 /*
  * Provide the attach context strip operation used by this module and its client
@@ -80,12 +71,16 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
         if (existing != NULL) g_object_unref(existing);
         return UMI_STATUS_OUT_OF_MEMORY;
     }
+    /* Keep context callbacks reachable even after an external native close
+     * removes this body from its window before product disposal. */
+    g_object_ref_sink(root);
 
     /* Desk uses the same Framework identity component as product workstations.
      * The executable directory contains the SVG files staged by packaging. */
     identity_config = umi_gtk4_ws_shell_header_config_default(
         "org.umicom.desktop", "Umicom Desk");
     identity_config.subtitle = "Applications and workspaces";
+    identity_config.compact = true;
     identity_config.resource_root = run->executable_root;
     status = umi_gtk4_ws_shell_header_create_managed(
         &identity_config, &run->identity);
@@ -125,10 +120,25 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
     }
 
     gtk_widget_add_css_class(root, "umicom-desk-context-root");
-    gtk_box_append(
-        GTK_BOX(root),
-        umi_gtk4_ws_shell_header_widget(run->identity));
     gtk_box_append(GTK_BOX(root), run->context_strip);
+
+    /* Transfer the existing identity and its application controls into the
+     * real titlebar. Its appearance/selection state is preserved and no second
+     * identity remains in the workbench content. Ownership moves on success. */
+    status = umi_gtk4_ws_window_titlebar_create_from_header(
+        window, run->identity, "Umicom Desk", &run->titlebar);
+    if (status != UMI_STATUS_OK) {
+        umi_workbench_context_host_gtk4_invalidate(root,
+            umi_desktop_context_link_centre_host(run->context_links));
+        run->context_strip = NULL;
+        if (existing != NULL) g_object_unref(existing);
+        umi_gtk4_ws_shell_header_destroy(run->identity);
+        run->identity = NULL;
+        g_object_unref(root);
+        return status;
+    }
+    run->identity = NULL;
+    (void)umi_gtk4_desk_set_content_identity_visible(run->desk, false);
 
     /*
      * Protect caller-owned memory by checking that required state is available before it is
@@ -148,7 +158,7 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
 }
 
 /* Provide the poll processes operation used by this module and its client applications. */
-static gboolean poll_processes(gpointer user_data)
+gboolean umi_desktop_gtk_window_poll(gpointer user_data)
 {
     UmiDesktopGtkRun *run = (UmiDesktopGtkRun *)user_data;
     UmiStatus status;
@@ -157,7 +167,11 @@ static gboolean poll_processes(gpointer user_data)
      * Protect caller-owned memory by checking that required state is available before it is
      * used.
      */
-    if (run == NULL || run->module == NULL) return G_SOURCE_REMOVE;
+    if (run == NULL) return G_SOURCE_REMOVE;
+    if (run->module == NULL) {
+        run->poll_source_id = 0U;
+        return G_SOURCE_REMOVE;
+    }
 
     status = umi_desktop_module_poll(run->module);
     /* Preserve the original failure result so the caller can respond to the correct cause. */
@@ -204,10 +218,10 @@ static gboolean poll_processes(gpointer user_data)
     return G_SOURCE_CONTINUE;
 }
 
-/* Provide the on activate operation used by this module and its client applications. */
-static void on_activate(GtkApplication *application, gpointer user_data)
+/* Build the actual product graph while keeping first presentation with the
+ * entry point. Tests use the same path without presentation or a polling timer. */
+UmiStatus umi_desktop_gtk_window_prepare(GtkApplication *application, UmiDesktopGtkRun *run)
 {
-    UmiDesktopGtkRun *run = (UmiDesktopGtkRun *)user_data;
     UmiDesktopModuleConfig config = umi_desktop_module_config_default();
     UmiStatus status;
 
@@ -215,7 +229,9 @@ static void on_activate(GtkApplication *application, gpointer user_data)
      * Protect caller-owned memory by checking that required state is available before it is
      * used.
      */
-    if (run == NULL || run->module != NULL) return;
+    if (application == NULL || !GTK_IS_APPLICATION(application) || run == NULL)
+        return UMI_STATUS_INVALID_ARGUMENT;
+    if (run->module != NULL) return UMI_STATUS_INVALID_STATE;
     config.executable_root = run->executable_root;
     config.working_directory = run->executable_root;
     status = umi_desktop_module_create(&config, &run->module);
@@ -229,10 +245,6 @@ static void on_activate(GtkApplication *application, gpointer user_data)
             application,
             umi_desktop_module_desk_runtime(run->module),
             &run->desk);
-    }
-    /* Preserve the original failure result so the caller can respond to the correct cause. */
-    if (status == UMI_STATUS_OK) {
-        status = umi_gtk4_desk_present(run->desk);
     }
     /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
@@ -251,7 +263,53 @@ static void on_activate(GtkApplication *application, gpointer user_data)
         status = attach_context_strip(run);
     }
 
-    /* Preserve the original failure result so the caller can respond to the correct cause. */
+    return status;
+}
+
+/* Cancel asynchronous work before native widgets or their borrowed services
+ * are released. This also supports a partially prepared startup graph. */
+void umi_desktop_gtk_window_dispose(UmiDesktopGtkRun *run)
+{
+    if (run == NULL) return;
+    if (run->poll_source_id != 0U) {
+        (void)g_source_remove(run->poll_source_id);
+        run->poll_source_id = 0U;
+    }
+    if (run->context_links != NULL)
+        umi_workbench_context_host_gtk4_invalidate(run->context_root,
+            umi_desktop_context_link_centre_host(run->context_links));
+    /* Release native identity callbacks before the Desk-owned window. An
+     * identity left by a failed transfer is still owned directly by this run. */
+    umi_gtk4_ws_window_titlebar_destroy(run->titlebar);
+    run->titlebar = NULL;
+    umi_gtk4_ws_shell_header_destroy(run->identity);
+    run->identity = NULL;
+    umi_gtk4_desk_destroy(run->desk);
+    run->desk = NULL;
+    if (run->context_root != NULL) g_object_unref(run->context_root);
+    run->context_root = NULL;
+    run->context_strip = NULL;
+    umi_desktop_context_link_centre_destroy(run->context_links);
+    run->context_links = NULL;
+    if (run->module != NULL) (void)umi_desktop_module_stop(run->module);
+    umi_desktop_module_destroy(run->module);
+    run->module = NULL;
+}
+
+#ifndef UMICOM_DESKTOP_GTK_NO_ENTRYPOINT
+/* Native activation presents only after identity and context composition are
+ * complete, avoiding a flash of the old in-content header during startup. */
+static void on_activate(GtkApplication *application, gpointer user_data)
+{
+    UmiDesktopGtkRun *run = user_data;
+    UmiStatus status;
+    if (run == NULL) return;
+    if (run->module != NULL) {
+        if (run->desk != NULL) (void)umi_gtk4_desk_present(run->desk);
+        return;
+    }
+    status = umi_desktop_gtk_window_prepare(application, run);
+    if (status == UMI_STATUS_OK) status = umi_gtk4_desk_present(run->desk);
     if (status != UMI_STATUS_OK) {
         g_printerr(
             "Umicom Desk startup failed: %s\n",
@@ -259,7 +317,7 @@ static void on_activate(GtkApplication *application, gpointer user_data)
         g_application_quit(G_APPLICATION(application));
         return;
     }
-    (void)g_timeout_add(250U, poll_processes, run);
+    run->poll_source_id = g_timeout_add(250U, umi_desktop_gtk_window_poll, run);
 }
 
 /*
@@ -300,26 +358,7 @@ int main(int argc, char **argv)
      * Destroy the GTK window and its signal closures before releasing the
      * toolkit-neutral host borrowed by the context-strip callbacks.
      */
-    /* Release the lightweight identity controller before its Desk-owned GTK
-     * widget tree is destroyed. */
-    umi_gtk4_ws_shell_header_destroy(run.identity);
-    run.identity = NULL;
-    umi_gtk4_desk_destroy(run.desk);
-    run.desk = NULL;
-    run.context_strip = NULL;
-    run.context_root = NULL;
-
-    umi_desktop_context_link_centre_destroy(run.context_links);
-    run.context_links = NULL;
-
-    /*
-     * Protect caller-owned memory by checking that required state is available before it is
-     * used.
-     */
-    if (run.module != NULL) {
-        (void)umi_desktop_module_stop(run.module);
-    }
-    umi_desktop_module_destroy(run.module);
+    umi_desktop_gtk_window_dispose(&run);
     g_object_unref(application);
     g_free(run.executable_root);
     g_free(absolute_program);
@@ -343,3 +382,4 @@ int WINAPI WinMain(
     return main(__argc, __argv);
 }
 #endif
+#endif /* UMICOM_DESKTOP_GTK_NO_ENTRYPOINT */

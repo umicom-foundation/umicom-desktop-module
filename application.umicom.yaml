@@ -6,6 +6,8 @@ application:
   short_name: Desk
   version: 0.1.0
   executable: umicom-desk
+  native_executable: umicom-desk
+  console_executable: umicom-desk-console
   aliases: [udesk, desktop]
 
 framework:
