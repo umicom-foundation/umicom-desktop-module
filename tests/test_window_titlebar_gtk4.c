@@ -67,6 +67,23 @@ static unsigned visible_inner_identity_count(GtkWidget *widget)
     return count;
 }
 
+/* Installation evidence is injected; no binaries are created, discovered or
+ * launched. The real Desk poll still owns the catalogue-to-widget journey. */
+typedef struct InstallationFixture {
+    bool studio_present;
+    size_t probe_count;
+} InstallationFixture;
+
+static UmiStatus probe_installation(const char *path, bool *present, void *context)
+{
+    InstallationFixture *fixture = context;
+    if (path == NULL || present == NULL || fixture == NULL)
+        return UMI_STATUS_INVALID_ARGUMENT;
+    ++fixture->probe_count;
+    *present = fixture->studio_present && strstr(path, "umicom-studio-ide") != NULL;
+    return UMI_STATUS_OK;
+}
+
 /* Compile and call the same prepare/dispose functions as the product. No
  * presentation, launch button, GApplication run loop or external tool is used. */
 int main(void)
@@ -81,6 +98,7 @@ int main(void)
     GtkWidget *choice = NULL;
     GtkWidget *new_window = NULL;
     GtkWidget *navigation = NULL;
+    GtkWidget *home_search = NULL;
     GtkWidget *control;
     GtkWindow *second_window = NULL;
     GFile *expected_file = NULL;
@@ -94,6 +112,10 @@ int main(void)
     UmiDesktopShellTab navigation_layout;
     UmiDesktopShellSnapshot shell_snapshot;
     UmiGtk4Desk *desk_controller;
+    UmiApplicationNativeDiscoveryConfig discovery =
+        umi_application_native_discovery_config_default();
+    UmiApplicationRuntimeRecord record;
+    InstallationFixture installation = {0};
     GError *error = NULL;
     guint clicked_signal;
     guint poll_source;
@@ -102,6 +124,18 @@ int main(void)
     (void)g_setenv("GTK_A11Y", "test", TRUE);
     (void)g_setenv("GSETTINGS_BACKEND", "memory", TRUE);
     if (!gtk_init_check()) return 77;
+    /* Exercise the real native discovery composition from its first scan,
+     * with the same explicit location used by its launcher and a fake probe. */
+#ifdef _WIN32
+    run.executable_root = "C:/umicom-native-test";
+#else
+    run.executable_root = "/umicom-native-test";
+#endif
+    discovery.executable_root = run.executable_root;
+    discovery.probe = probe_installation;
+    discovery.probe_context = &installation;
+    installation.studio_present = true;
+    run.discovery_config = &discovery;
     application = gtk_application_new("org.umicom.desktop.native-test", G_APPLICATION_NON_UNIQUE);
     REQUIRE(g_application_register(G_APPLICATION(application), NULL, &error));
     REQUIRE(umi_desktop_gtk_window_prepare(application, &run) == UMI_STATUS_OK);
@@ -114,6 +148,10 @@ int main(void)
     REQUIRE(body == run.context_root && run.context_strip != NULL);
     REQUIRE(find_widget(body, NULL, "umicom-desk-application-chooser") != NULL);
     REQUIRE(find_widget(body, NULL, "umicom-desk-global-bar") != NULL);
+    REQUIRE(strcmp(umi_gtk4_desk_visible_page(run.desk), "home") == 0);
+    control = find_widget(body, "desk.home.search", NULL);
+    REQUIRE(GTK_IS_SEARCH_ENTRY(control));
+    home_search = g_object_ref(control);
     REQUIRE(visible_inner_identity_count(body) == 0U);
     bar = gtk_window_get_titlebar(window);
     REQUIRE(GTK_IS_HEADER_BAR(bar));
@@ -201,6 +239,46 @@ int main(void)
     REQUIRE(umi_desktop_module_snapshot(run.module, module_snapshot) == UMI_STATUS_OK);
     REQUIRE(module_snapshot->supervised_process_count == 0U);
 
+    /* Reconfigure the already-enabled Framework monitor to reset its deadline
+     * without sleeping or changing the launcher's bound installation root. */
+    REQUIRE(umi_gtk4_desk_show_home(run.desk) == UMI_STATUS_OK);
+    gtk_editable_set_text(GTK_EDITABLE(home_search), "Studio");
+    g_signal_emit_by_name(home_search, "search-changed");
+    installation.studio_present = true;
+    REQUIRE(umi_desk_runtime_configure_native_discovery(runtime, &discovery) == UMI_STATUS_OK);
+    REQUIRE(umi_desktop_gtk_window_poll(&run) == G_SOURCE_CONTINUE);
+    REQUIRE(installation.probe_count > 0U);
+    REQUIRE(umi_application_runtime_catalogue_find(umi_desk_runtime_applications(runtime),
+        "org.umicom.studio", &record) == UMI_STATUS_OK);
+    REQUIRE(record.installed);
+    REQUIRE(find_widget(body, "desk.home.search", NULL) == home_search);
+    REQUIRE(strcmp(gtk_editable_get_text(GTK_EDITABLE(home_search)), "Studio") == 0);
+    REQUIRE(strcmp(umi_gtk4_desk_visible_page(run.desk), "home") == 0);
+
+    /* Removing installation evidence must not erase a still-running process.
+     * This token is model evidence only, not an operating-system process. */
+    REQUIRE(umi_application_runtime_catalogue_set_process(umi_desk_runtime_applications(runtime),
+        "org.umicom.studio", 1234U) == UMI_STATUS_OK);
+    installation.studio_present = false;
+    REQUIRE(umi_desk_runtime_configure_native_discovery(runtime, &discovery) == UMI_STATUS_OK);
+    REQUIRE(umi_desktop_gtk_window_poll(&run) == G_SOURCE_CONTINUE);
+    REQUIRE(umi_application_runtime_catalogue_find(umi_desk_runtime_applications(runtime),
+        "org.umicom.studio", &record) == UMI_STATUS_OK);
+    REQUIRE(!record.installed && record.running && record.process_token == 1234U);
+    /* The current product adapter cannot bring another native window forward.
+     * It must report that limit without fabricating success or spawning again. */
+    REQUIRE(umi_desk_runtime_request_application(runtime, "org.umicom.studio",
+        UMI_DESKTOP_APPLICATION_STRIP_LAUNCH_OR_ACTIVATE) == UMI_STATUS_NOT_IMPLEMENTED);
+    REQUIRE(umi_application_runtime_catalogue_find(umi_desk_runtime_applications(runtime),
+        "org.umicom.studio", &record) == UMI_STATUS_OK);
+    REQUIRE(record.running && record.process_token == 1234U);
+    REQUIRE(umi_desk_runtime_reconcile_application_exit(runtime,
+        "org.umicom.studio", 0, "Fixture exit") == UMI_STATUS_OK);
+    REQUIRE(umi_desktop_module_snapshot(run.module, module_snapshot) == UMI_STATUS_OK);
+    REQUIRE(module_snapshot->supervised_process_count == 0U);
+    REQUIRE(find_widget(body, "desk.home.search", NULL) == home_search);
+    REQUIRE(strcmp(gtk_editable_get_text(GTK_EDITABLE(home_search)), "Studio") == 0);
+
     /* A native close can precede product cleanup. Strong original-body/window
      * references keep callbacks reachable until they are explicitly disabled. */
     run.poll_source_id = g_timeout_add_seconds(3600U, umi_desktop_gtk_window_poll, &run);
@@ -216,6 +294,8 @@ int main(void)
 
     /* The ordinary controller-first order also destroys its window, rather
      * than leaving a GtkApplication-owned surface with borrowed Desk callbacks. */
+    run.executable_root = NULL;
+    run.discovery_config = NULL;
     REQUIRE(umi_desktop_gtk_window_prepare(application, &run) == UMI_STATUS_OK);
     second_window = g_object_ref(GTK_WINDOW(umi_gtk4_desk_native_window(run.desk)));
     REQUIRE(!gtk_widget_get_realized(GTK_WIDGET(second_window)));
@@ -228,6 +308,7 @@ cleanup:
     if (new_window != NULL) g_object_unref(new_window);
     if (choice != NULL) g_object_unref(choice);
     if (navigation != NULL) g_object_unref(navigation);
+    if (home_search != NULL) g_object_unref(home_search);
     if (window != NULL) g_object_unref(window);
     if (second_window != NULL) g_object_unref(second_window);
     if (application != NULL) g_object_unref(application);

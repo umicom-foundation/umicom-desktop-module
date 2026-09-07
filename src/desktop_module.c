@@ -182,11 +182,12 @@ static UmiStatus process_activate(
 
     /*
      * Cross-process window activation will later use Framework IPC and a
-     * platform window-service adapter. Treating the already-running process as
-     * active is deterministic and avoids GTK- or Win32-specific policy here.
+     * platform window-service adapter. Until that adapter is connected, report
+     * the missing capability rather than claiming the window was activated.
+     * The Framework launcher keeps the tracked process; it must not start a
+     * duplicate as a fallback for this unsupported operation.
      */
-    module->revision += 1U;
-    return UMI_STATUS_OK;
+    return UMI_STATUS_NOT_IMPLEMENTED;
 }
 
 /* Provide the process stop operation used by this module and its client applications. */

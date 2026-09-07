@@ -25,6 +25,10 @@ typedef struct UmiDesktopGtkRun {
     GtkWidget *context_strip;
     GtkWidget *context_root;
     char *executable_root;
+    /* Optional borrowed Framework configuration for native host composition.
+     * NULL uses the real file probe. Tests inject evidence without disk writes;
+     * any supplied root/suffix must match the Framework launcher location. */
+    const UmiApplicationNativeDiscoveryConfig *discovery_config;
     guint poll_source_id;
 } UmiDesktopGtkRun;
 
