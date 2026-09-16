@@ -70,6 +70,7 @@ struct UmiDesktopModule {
     UmiDesktopModuleProcess process_map[UMI_DESKTOP_MODULE_MAX_PROCESSES];
     size_t process_count;
     size_t completed_process_count;
+    size_t submitted_process_count;
     bool started;
     uint64_t revision;
 };
@@ -107,6 +108,8 @@ static UmiStatus process_start(
     UmiProcessJobId job_id;
     UmiStatus status;
     size_t index;
+    size_t slot;
+    char applicationId[UMI_APPLICATION_RUNTIME_ID_CAPACITY];
 
     /*
      * Protect caller-owned memory by checking that required state is available before it is
@@ -115,10 +118,18 @@ static UmiStatus process_start(
     if (module == NULL || plan == NULL || out_process_token == NULL) {
         return UMI_STATUS_INVALID_ARGUMENT;
     }
-    /* Keep the operation inside its valid bounds before reading, writing or adding data. */
-    if (module->process_count >= UMI_DESKTOP_MODULE_MAX_PROCESSES) {
+    /* A completed mapping can be reused only after poll has reconciled and
+     * released its Framework job. Active mappings are never overwritten. */
+    for (slot = 0U; slot < module->process_count; ++slot)
+        if (module->process_map[slot].reconciled) break;
+    if (slot == UMI_DESKTOP_MODULE_MAX_PROCESSES ||
+        module->submitted_process_count == SIZE_MAX)
         return UMI_STATUS_CAPACITY_EXCEEDED;
-    }
+    if (plan->argument_count > UMI_APPLICATION_LAUNCH_MAX_ARGUMENTS ||
+        memchr(plan->application_id, '\0', sizeof(plan->application_id)) == NULL)
+        return UMI_STATUS_INVALID_ARGUMENT;
+    status = copy_text(applicationId, sizeof(applicationId), plan->application_id);
+    if (status != UMI_STATUS_OK) return status;
     /* Visit each bounded item once so every record receives the same rule. */
     for (index = 0U; index < plan->argument_count; ++index) {
         arguments[index] = plan->arguments[index];
@@ -148,18 +159,14 @@ static UmiStatus process_start(
     /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
 
-    status = copy_text(
-        module->process_map[module->process_count].application_id,
-        sizeof(module->process_map[module->process_count].application_id),
-        plan->application_id);
-    /* Preserve the original failure result so the caller can respond to the correct cause. */
-    if (status != UMI_STATUS_OK) {
-        (void)umi_process_supervisor_cancel(module->processes, job_id);
-        return status;
-    }
-    module->process_map[module->process_count].job_id = job_id;
-    module->process_map[module->process_count].reconciled = false;
-    module->process_count += 1U;
+    /* Identity was checked before the child started. No fallible text copy
+     * remains between successful submission and publishing its tracking token. */
+    (void)memcpy(module->process_map[slot].application_id,
+        applicationId, strlen(applicationId) + 1U);
+    module->process_map[slot].job_id = job_id;
+    module->process_map[slot].reconciled = false;
+    if (slot == module->process_count) module->process_count += 1U;
+    module->submitted_process_count += 1U;
     module->revision += 1U;
     *out_process_token = job_id;
     return UMI_STATUS_OK;
@@ -574,12 +581,15 @@ UmiStatus umi_desktop_module_poll(UmiDesktopModule *module)
         message = process.output[0] != '\0'
             ? process.output
             : umi_process_job_state_text(process.state);
-        status = umi_desk_runtime_reconcile_application_exit(
-            module->desk_runtime,
-            mapping->application_id,
-            exit_code,
-            message);
-        /* Preserve the original failure result so the caller can respond to the correct cause. */
+        status = UmiDeskRuntimeReconcileProcessExit(
+            module->desk_runtime, mapping->application_id, mapping->job_id,
+            exit_code, message);
+        /* A stopped or superseded token is already obsolete, not a reason
+         * to mark a replacement application as stopped. Acknowledge the old
+         * job in either case, keeping cumulative completion counters. */
+        if (status != UMI_STATUS_OK && status != UMI_STATUS_INVALID_STATE)
+            return status;
+        status = UmiProcessSupervisorReleaseJob(module->processes, mapping->job_id);
         if (status != UMI_STATUS_OK) return status;
         mapping->reconciled = true;
         module->completed_process_count += 1U;
@@ -610,7 +620,7 @@ UmiStatus umi_desktop_module_snapshot(
     /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status != UMI_STATUS_OK) return status;
     out_snapshot->started = module->started;
-    out_snapshot->supervised_process_count = module->process_count;
+    out_snapshot->supervised_process_count = module->submitted_process_count;
     out_snapshot->completed_process_count =
         module->completed_process_count;
     out_snapshot->revision = module->revision;

@@ -241,3 +241,20 @@ umicom_add_application_productisation_contribution(
     TARGET "umicom_desktop_productisation"
     SOURCE "src/productisation_contribution.c"
     TEST_SOURCE "tests/test_productisation_contribution.c")
+
+# Only the inert test child is launched, never a banking or trading application.
+if(BUILD_TESTING)
+    add_executable(umicom-desktop-lifecycle-child tests/test_lifecycle_child.c)
+    add_executable(umicom-desktop-launch-lifecycle-test tests/test_launch_lifecycle.c)
+    target_link_libraries(umicom-desktop-launch-lifecycle-test PRIVATE Umicom::desktop_module)
+    umicom_apply_warnings(umicom-desktop-launch-lifecycle-test)
+    umicom_apply_sanitizers(umicom-desktop-launch-lifecycle-test)
+    add_dependencies(umicom-desktop-launch-lifecycle-test umicom-desktop-lifecycle-child)
+    add_test(NAME desktop.launch_lifecycle COMMAND umicom-desktop-launch-lifecycle-test
+        "$<TARGET_FILE:umicom-desktop-lifecycle-child>")
+    set_tests_properties(desktop.launch_lifecycle PROPERTIES TIMEOUT 60
+        LABELS "desktop;operational-state;regression")
+    if(COMMAND umicom_register_validation_target)
+        umicom_register_validation_target(umicom-desktop-launch-lifecycle-test)
+    endif()
+endif()
