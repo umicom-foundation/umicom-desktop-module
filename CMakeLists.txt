@@ -258,3 +258,7 @@ if(BUILD_TESTING)
         umicom_register_validation_target(umicom-desktop-launch-lifecycle-test)
     endif()
 endif()
+
+# Install the public workflow lesson beside this product's other guides.
+install(FILES docs/WORKFLOW_TOOLS.html
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/umicom/desktop/docs)
