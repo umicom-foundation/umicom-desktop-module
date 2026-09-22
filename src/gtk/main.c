@@ -321,6 +321,13 @@ void umi_desktop_gtk_window_dispose(UmiDesktopGtkRun *run)
     run->titlebar = NULL;
     umi_gtk4_ws_shell_header_destroy(run->identity);
     run->identity = NULL;
+    /* This composition owns the context-root mounted above Framework's Desk
+     * body. Release that parent-child link now: a caller may retain an
+     * unpresented GtkWindow after destroy, delaying GObject disposal. */
+    if (run->desk != NULL) {
+        GtkWindow *window = GTK_WINDOW(umi_gtk4_desk_native_window(run->desk));
+        if (window != NULL) gtk_window_set_child(window, NULL);
+    }
     umi_gtk4_desk_destroy(run->desk);
     run->desk = NULL;
     if (run->context_root != NULL) g_object_unref(run->context_root);
