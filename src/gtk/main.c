@@ -20,6 +20,7 @@
 #include "umicom/ui/appearance_catalogue.h"
 #include "umicom/platform/filesystem.h"
 #include "umicom/ui/gtk4/desk.h"
+#include "umicom/ui/gtk4/desk_appearance.h"
 #include "umicom/ui/gtk4/workstation/shell_header.h"
 #include "umicom/workbench_context_host/gtk4.h"
 #include "desktop_window.h"
@@ -106,6 +107,16 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
             "umicom-dark", &appearance) == UMI_STATUS_OK) {
         (void)umi_gtk4_ws_shell_header_apply_appearance(
             run->identity, &appearance);
+    }
+
+    /*
+     * Desk uses the same semantic appearance profile as the product
+     * workstations. Framework owns the GTK projection so the thin Desktop
+     * module does not duplicate palette values or widget-specific CSS.
+     */
+    if (umi_ui_appearance_catalogue_find(
+            "umicom-dark", &appearance) == UMI_STATUS_OK) {
+        (void)umi_gtk4_desk_apply_appearance(window, &appearance);
     }
 
     run->context_strip = umi_workbench_context_host_gtk4_strip_new(
