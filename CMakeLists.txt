@@ -274,3 +274,15 @@ endif()
 if(TARGET umicom-desktop-window-titlebar-test)
     target_link_libraries(umicom-desktop-window-titlebar-test PRIVATE Umicom::desk_federation_gtk4)
 endif()
+
+
+# The System Centre belongs to Framework; Desk only attaches its launcher.
+if(TARGET umicom-desk OR TARGET umicom-desktop-window-titlebar-test)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/../../framework/cmake/UmicomDesktopSystemGtk4.cmake")
+    if(TARGET umicom-desk)
+        target_link_libraries(umicom-desk PRIVATE Umicom::desktop_system_gtk4)
+    endif()
+    if(TARGET umicom-desktop-window-titlebar-test)
+        target_link_libraries(umicom-desktop-window-titlebar-test PRIVATE Umicom::desktop_system_gtk4)
+    endif()
+endif()

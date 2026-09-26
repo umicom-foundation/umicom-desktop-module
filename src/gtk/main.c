@@ -25,6 +25,7 @@
 #include "umicom/workbench_context_host/gtk4.h"
 #include "desktop_window.h"
 #include "umicom/ui/gtk4/desk_federation.h"
+#include "umicom/desktop_system/gtk4.h"
 
 /*
  * Provide the attach context strip operation used by this module and its client
@@ -180,6 +181,15 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
         if (federationStatus != UMI_STATUS_OK)
             g_printerr("Umicom Desk workspace controls: %s\n",
                 umi_status_text(federationStatus));
+    }
+
+    /* System observations and worker lifetimes stay Framework-owned. Opening
+     * this launcher does not alter the existing Desk, federation or context
+     * controls, and no capture occurs until the user selects Refresh. */
+    {
+        UmiStatus systemStatus = UmiDesktopSystemGtk4Attach(root);
+        if (systemStatus != UMI_STATUS_OK)
+            g_printerr("Umicom System Centre: %s\n", umi_status_text(systemStatus));
     }
 
     gtk_window_set_child(window, root);
