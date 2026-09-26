@@ -262,3 +262,15 @@ endif()
 # Install the public workflow lesson beside this product's other guides.
 install(FILES docs/WORKFLOW_TOOLS.html
     DESTINATION ${CMAKE_INSTALL_DATADIR}/umicom/desktop/docs)
+
+# Compose saved application groups and reviewed session restore through the
+# Framework capability. No Desk-local process engine or persistence is added.
+if(NOT TARGET Umicom::desk_federation_host)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/../../framework/cmake/UmicomDeskFederation.cmake")
+endif()
+if(TARGET umicom-desk)
+    target_link_libraries(umicom-desk PRIVATE Umicom::desk_federation_gtk4)
+endif()
+if(TARGET umicom-desktop-window-titlebar-test)
+    target_link_libraries(umicom-desktop-window-titlebar-test PRIVATE Umicom::desk_federation_gtk4)
+endif()

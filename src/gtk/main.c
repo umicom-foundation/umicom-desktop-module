@@ -24,6 +24,7 @@
 #include "umicom/ui/gtk4/workstation/shell_header.h"
 #include "umicom/workbench_context_host/gtk4.h"
 #include "desktop_window.h"
+#include "umicom/ui/gtk4/desk_federation.h"
 
 /*
  * Provide the attach context strip operation used by this module and its client
@@ -170,6 +171,17 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
         g_object_unref(existing);
     }
 
+    /* Framework owns the saved-workspace UI and launch review policy. This
+     * composition only attaches it to the existing root; no storage is opened
+     * until the user requests it. The original context strip and Desk remain. */
+    {
+        UmiStatus federationStatus = UmiDeskFederationGtkAttach(root,
+            umi_desktop_module_desk_runtime(run->module));
+        if (federationStatus != UMI_STATUS_OK)
+            g_printerr("Umicom Desk workspace controls: %s\n",
+                umi_status_text(federationStatus));
+    }
+
     gtk_window_set_child(window, root);
     run->context_root = root;
     return UMI_STATUS_OK;
@@ -243,6 +255,11 @@ gboolean umi_desktop_gtk_window_poll(gpointer user_data)
             run->context_strip,
             umi_desktop_context_link_centre_host(run->context_links));
     }
+
+    /* Reuse the existing poll rather than adding a second timer. The view
+     * remains inert until its explicit storage action is used. */
+    if (run->context_root != NULL)
+        (void)UmiDeskFederationGtkPoll(run->context_root);
 
     return G_SOURCE_CONTINUE;
 }
@@ -323,6 +340,9 @@ void umi_desktop_gtk_window_dispose(UmiDesktopGtkRun *run)
         (void)g_source_remove(run->poll_source_id);
         run->poll_source_id = 0U;
     }
+    /* Retained widgets must lose borrowed runtime access before any Desk
+     * service is released. This does not stop any additional application. */
+    UmiDeskFederationGtkInvalidate(run->context_root);
     if (run->context_links != NULL)
         umi_workbench_context_host_gtk4_invalidate(run->context_root,
             umi_desktop_context_link_centre_host(run->context_links));
