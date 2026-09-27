@@ -26,6 +26,7 @@
 #include "desktop_window.h"
 #include "umicom/ui/gtk4/desk_federation.h"
 #include "umicom/desktop_system/gtk4.h"
+#include "umicom/desktop_workspace/gtk4.h"
 
 /*
  * Provide the attach context strip operation used by this module and its client
@@ -190,6 +191,14 @@ static UmiStatus attach_context_strip(UmiDesktopGtkRun *run)
         UmiStatus systemStatus = UmiDesktopSystemGtk4Attach(root);
         if (systemStatus != UMI_STATUS_OK)
             g_printerr("Umicom System Centre: %s\n", umi_status_text(systemStatus));
+    }
+
+    /* Shared checkpointed notes/preferences complement, rather than replace,
+     * saved application groups. This launcher opens no persistent storage. */
+    {
+        UmiStatus workspaceStatus = UmiDesktopWorkspaceGtkAttach(root);
+        if (workspaceStatus != UMI_STATUS_OK)
+            g_printerr("Umicom Desktop Workspace: %s\n", umi_status_text(workspaceStatus));
     }
 
     gtk_window_set_child(window, root);

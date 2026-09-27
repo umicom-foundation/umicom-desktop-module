@@ -286,3 +286,14 @@ if(TARGET umicom-desk OR TARGET umicom-desktop-window-titlebar-test)
         target_link_libraries(umicom-desktop-window-titlebar-test PRIVATE Umicom::desktop_system_gtk4)
     endif()
 endif()
+
+# Desk only attaches a launcher. Persistence, recovery and editor behaviour
+# remain shared Framework capabilities, alongside the previous workspace UI.
+if(TARGET umicom-desk OR TARGET umicom-desktop-window-titlebar-test)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/../../framework/cmake/UmicomDesktopWorkspaceGtk4.cmake")
+    foreach(_desktop_target IN ITEMS umicom-desk umicom-desktop-window-titlebar-test)
+        if(TARGET ${_desktop_target})
+            target_link_libraries(${_desktop_target} PRIVATE Umicom::desktop_workspace_gtk4)
+        endif()
+    endforeach()
+endif()
