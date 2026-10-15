@@ -63,3 +63,14 @@ module does not copy the joining or validation rules.
 Project lead and author: Sammy Hegab
 Organisation: Umicom Foundation
 Licence: MIT
+
+## Healthcare in Desk
+
+Desk uses Framework's Healthcare registration and native executable mapping.
+An installation containing `umicom-healthcare` beside `umicom-desk` exposes
+Healthcare through the normal application selector and supervised launch path.
+On Windows these executable names end in `.exe`.
+
+The Healthcare window currently provides a synthetic, in-memory access-request
+exercise. It is not a patient record system. If Healthcare is absent or disabled,
+Desk leaves it unavailable rather than launching its verification console.

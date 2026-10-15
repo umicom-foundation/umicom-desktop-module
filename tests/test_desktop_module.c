@@ -105,6 +105,14 @@ int main(void)
     REQUIRE(guided_entry->guidance_state ==
             UMI_PRODUCT_LAUNCH_GUIDANCE_MISSING_GUIDE);
     REQUIRE(guided_entry->ready_to_execute);
+
+    /* Healthcare is seeded from Framework, not hard-coded as installed by Desk.
+     * Trusted executable discovery is responsible for making it launchable. */
+    REQUIRE(umi_application_runtime_catalogue_find(
+                umi_desk_runtime_applications(umi_desktop_module_desk_runtime(module)),
+                "org.umicom.healthcare", &record) == UMI_STATUS_OK);
+    REQUIRE(strcmp(record.display_name, "Umicom Healthcare") == 0);
+    REQUIRE(!record.installed && !record.running);
     REQUIRE(umi_desktop_module_stop(module) == UMI_STATUS_OK);
     umi_desktop_module_destroy(module);
     return 0;
