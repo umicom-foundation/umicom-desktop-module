@@ -145,8 +145,13 @@ static UmiStatus process_start(
         plan->working_directory[0] != '\0'
             ? plan->working_directory
             : NULL;
+/* Capture bounded startup diagnostics through the existing Framework supervisor; VISIBLE below preserves native GUI presentation despite stream capture. The former implementation is retained for owner review. */
+#if 0
     request.capture_stdout = 0;
     request.capture_stderr = 0;
+#endif
+    request.capture_stdout = 1;
+    request.capture_stderr = 1;
     request.timeout_ms = 0U;
     request.poll_interval_ms = 50U;
     request.window_mode = UMI_PROCESS_WINDOW_VISIBLE;
@@ -173,6 +178,8 @@ static UmiStatus process_start(
 }
 
 /* Provide the process activate operation used by this module and its client applications. */
+/* Framework now owns native window activation under the supervisor handle lease. Keep the earlier unsupported adapter for review; no duplicate process is used as fallback. The former implementation is retained for owner review. */
+#if 0
 static UmiStatus process_activate(
     void *context,
     const char *application_id,
@@ -195,6 +202,21 @@ static UmiStatus process_activate(
      * duplicate as a fallback for this unsupported operation.
      */
     return UMI_STATUS_NOT_IMPLEMENTED;
+}
+#endif
+static UmiStatus process_activate(
+    void *context, const char *application_id, uint64_t process_token)
+{
+    UmiDesktopModule *module = context;
+    if (module == NULL || application_id == NULL || process_token == 0U)
+        return UMI_STATUS_INVALID_ARGUMENT;
+    for (size_t index = 0U; index < module->process_count; ++index) {
+        const UmiDesktopModuleProcess *mapping = &module->process_map[index];
+        if (!mapping->reconciled && mapping->job_id == process_token &&
+            strcmp(mapping->application_id, application_id) == 0)
+            return UmiProcessSupervisorActivate(module->processes, mapping->job_id);
+    }
+    return UMI_STATUS_INVALID_STATE;
 }
 
 /* Provide the process stop operation used by this module and its client applications. */
@@ -381,6 +403,12 @@ UmiStatus umi_desktop_module_create(
             &module->desk_runtime);
     }
 
+    /* Job submission is not native creation. The poll below owns completion
+     * and must not claim that a product window has appeared. */
+    if (status == UMI_STATUS_OK)
+        status = UmiApplicationLauncherSetDeferredStart(
+            umi_desk_runtime_launcher(module->desk_runtime), true);
+
     /* Preserve the original failure result so the caller can respond to the correct cause. */
     if (status == UMI_STATUS_OK) {
         status = make_registration(
@@ -563,7 +591,7 @@ UmiStatus umi_desktop_module_poll(UmiDesktopModule *module)
         UmiDesktopModuleProcess *mapping = &module->process_map[index];
         UmiProcessJobSnapshot process;
         int exit_code;
-        const char *message;
+        char completion[UMI_APPLICATION_RUNTIME_MESSAGE_CAPACITY];
         /* Apply this branch only when its contract condition is satisfied. */
         if (mapping->reconciled) continue;
         status = umi_process_supervisor_snapshot(
@@ -571,19 +599,48 @@ UmiStatus umi_desktop_module_poll(UmiDesktopModule *module)
         /* Preserve the original failure result so the caller can respond to the correct cause. */
         if (status != UMI_STATUS_OK) return status;
         /* Apply this branch only when its contract condition is satisfied. */
+/* Poll native creation independently of worker submission or output. Match the reserved token before updating the active generation. The former implementation is retained for owner review. */
+#if 0
         if (process.state == UMI_PROCESS_JOB_CREATED ||
             process.state == UMI_PROCESS_JOB_RUNNING) {
+            continue;
+        }
+#endif
+        if (process.state == UMI_PROCESS_JOB_CREATED ||
+            process.state == UMI_PROCESS_JOB_RUNNING) {
+            int launched = 0;
+            UmiApplicationRuntimeRecord current;
+            status = UmiProcessSupervisorLaunchObserved(module->processes,
+                mapping->job_id, &launched);
+            if (status != UMI_STATUS_OK) return status;
+            status = umi_application_runtime_catalogue_find(
+                umi_desk_runtime_applications(module->desk_runtime),
+                mapping->application_id, &current);
+            if (status != UMI_STATUS_OK) return status;
+            if (launched && current.process_token == mapping->job_id &&
+                current.state == UMI_APPLICATION_RUNTIME_STARTING) {
+                status = umi_application_runtime_catalogue_set_state(
+                    umi_desk_runtime_applications(module->desk_runtime),
+                    mapping->application_id, UMI_APPLICATION_RUNTIME_RUNNING,
+                    "Native process created; application window readiness is unconfirmed.");
+                if (status != UMI_STATUS_OK) return status;
+            }
             continue;
         }
         exit_code = process.state == UMI_PROCESS_JOB_SUCCEEDED
             ? 0
             : (process.exit_code != 0 ? process.exit_code : 1);
+/* The runtime error field is smaller than the captured stream. Shared bounded formatting prevents a long diagnostic from blocking exit reconciliation forever. The former implementation is retained for owner review. */
+#if 0
         message = process.output[0] != '\0'
             ? process.output
             : umi_process_job_state_text(process.state);
+#endif
+        status = UmiProcessJobFormatCompletion(&process, completion, sizeof(completion));
+        if (status != UMI_STATUS_OK) return status;
         status = UmiDeskRuntimeReconcileProcessExit(
             module->desk_runtime, mapping->application_id, mapping->job_id,
-            exit_code, message);
+            exit_code, completion);
         /* A stopped or superseded token is already obsolete, not a reason
          * to mark a replacement application as stopped. Acknowledge the old
          * job in either case, keeping cumulative completion counters. */

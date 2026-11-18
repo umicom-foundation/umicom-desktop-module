@@ -297,3 +297,23 @@ if(TARGET umicom-desk OR TARGET umicom-desktop-window-titlebar-test)
         endif()
     endforeach()
 endif()
+
+# Startup evidence uses an inert child, never a real product.
+if(BUILD_TESTING)
+    add_executable(umicom-desktop-startup-child tests/test_startup_child.c)
+    add_executable(umicom-desktop-startup-evidence-test tests/test_startup_evidence.c)
+    target_link_libraries(umicom-desktop-startup-evidence-test PRIVATE Umicom::desktop_module)
+    umicom_apply_warnings(umicom-desktop-startup-evidence-test)
+    umicom_apply_sanitizers(umicom-desktop-startup-evidence-test)
+    add_dependencies(umicom-desktop-startup-evidence-test umicom-desktop-startup-child)
+    foreach(_startup_case IN ITEMS failure missing)
+        add_test(NAME "desktop.startup.${_startup_case}"
+            COMMAND umicom-desktop-startup-evidence-test "${_startup_case}"
+                "$<TARGET_FILE:umicom-desktop-startup-child>")
+        set_tests_properties("desktop.startup.${_startup_case}" PROPERTIES
+            TIMEOUT 20 LABELS "desktop;startup;regression")
+    endforeach()
+    if(COMMAND umicom_register_validation_target)
+        umicom_register_validation_target(umicom-desktop-startup-evidence-test)
+    endif()
+endif()
